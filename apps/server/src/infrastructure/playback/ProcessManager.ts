@@ -5,7 +5,6 @@
  */
 
 import { spawn, ChildProcess, SpawnOptions } from 'child_process';
-import { promises as fs } from 'fs';
 import { Result } from '@party-jukebox/shared';
 import { IProcessManager } from '../../domain/playback/interfaces';
 import { 
@@ -36,18 +35,6 @@ interface ProcessHealth {
   readonly lastHealthCheck: Date;
   readonly isResponsive: boolean;
   readonly memoryUsageMB: number;
-}
-
-/**
- * yt-dlp result structure
- * Requirements: 1.1, 1.2, 1.3
- */
-interface YtDlpResult {
-  readonly url: string;
-  readonly title: string;
-  readonly duration: number;
-  readonly format: string;
-  readonly quality: string;
 }
 
 export class ProcessManager implements IProcessManager {
@@ -283,11 +270,8 @@ export class ProcessManager implements IProcessManager {
       // Prepare yt-dlp arguments
       const args = [
         '--format', options.format,
-        '--get-url',
-        '--get-title',
-        '--get-duration',
         '--no-playlist',
-        '--extract-flat', 'false',
+        '--no-flat-playlist', // Fully extract video information
         '--print', '%(url)s',
         '--print', '%(title)s', 
         '--print', '%(duration)s',
@@ -451,14 +435,18 @@ export class ProcessManager implements IProcessManager {
       // Check mpv
       const mpvResult = await this.validateExecutable('mpv');
       if (!mpvResult.success) {
+        console.log("MPV was not found")
         return { success: false, error: 'DEPENDENCY_MISSING' };
       }
+      console.log("MPV Was Found")
 
       // Check yt-dlp
       const ytDlpResult = await this.validateExecutable('yt-dlp');
       if (!ytDlpResult.success) {
+        console.log("yt-dlp was not found")
         return { success: false, error: 'DEPENDENCY_MISSING' };
       }
+      console.log("yt-dpl was found")
 
       return { success: true, value: undefined };
 

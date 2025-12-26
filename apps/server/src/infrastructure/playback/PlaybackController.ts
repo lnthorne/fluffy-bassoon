@@ -427,6 +427,52 @@ export class PlaybackController extends EventEmitter implements IPlaybackControl
   }
 
   /**
+   * Configure MPV to send events we need for playback management
+   * Requirements: 2.4, 2.5
+   */
+  private async setupMpvEventObservation(): Promise<void> {
+    try {
+      console.log('Setting up MPV event observation...');
+
+      // Enable event logging to receive events
+      const enableEventsCommand: MPVCommand = {
+        command: ['request_log_messages', 'info']
+      };
+      await this.ipcClient.sendCommand(enableEventsCommand);
+
+      // Observe playback-time property to get position updates
+      const observeTimeCommand: MPVCommand = {
+        command: ['observe_property', '1', 'playback-time']
+      };
+      await this.ipcClient.sendCommand(observeTimeCommand);
+
+      // Observe eof-reached property to detect when track ends
+      const observeEofCommand: MPVCommand = {
+        command: ['observe_property', '2', 'eof-reached']
+      };
+      await this.ipcClient.sendCommand(observeEofCommand);
+
+      // Observe pause property to track play/pause state
+      const observePauseCommand: MPVCommand = {
+        command: ['observe_property', '3', 'pause']
+      };
+      await this.ipcClient.sendCommand(observePauseCommand);
+
+      // Observe duration property to get track duration
+      const observeDurationCommand: MPVCommand = {
+        command: ['observe_property', '4', 'duration']
+      };
+      await this.ipcClient.sendCommand(observeDurationCommand);
+
+      console.log('MPV event observation configured successfully');
+
+    } catch (error) {
+      console.error('Failed to setup MPV event observation:', error);
+      // Don't throw - this is not critical for basic playback
+    }
+  }
+
+  /**
    * Ensure MPV process is running and IPC is connected
    * Requirements: 2.1, 2.7, 2.8
    */
@@ -451,6 +497,9 @@ export class PlaybackController extends EventEmitter implements IPlaybackControl
           console.error('Failed to connect IPC:', error);
           return { success: false, error: 'IPC_COMMUNICATION_FAILED' };
         }
+
+        // Configure MPV to send events we need
+        await this.setupMpvEventObservation();
 
         // Start health monitoring
         this.startHealthMonitoring();
@@ -529,6 +578,9 @@ export class PlaybackController extends EventEmitter implements IPlaybackControl
       // Reconnect IPC
       await this.ipcClient.connect(this.socketPath);
 
+      // Re-setup event observation after reconnection
+      await this.setupMpvEventObservation();
+
       console.log('MPV connection recovered successfully');
 
     } catch (error) {
@@ -556,47 +608,68 @@ export class PlaybackController extends EventEmitter implements IPlaybackControl
    */
   private handleMpvEvent(response: MPVResponse): void {
     try {
-      // Handle playback-finished event
+      // Log all MPV events for debugging
+      console.log('MPV Event received:', JSON.stringify(response, null, 2));
+
+      // Handle property change events from observe_property commands
+      if (response.event === 'property-change') {
+        this.handlePropertyChange(response);
+        return;
+      }
+
+      // Handle direct MPV events
+      if (response.event) {
+        switch (response.event) {
+          case 'end-file':
+            // Track finished - this is the most reliable way to detect end
+            console.log('MPV end-file event received');
+            this.handleTrackEnd();
+            break;
+            
+          case 'playback-restart':
+            // Track started playing
+            this.emitEvent('track_started', {
+              position: 0,
+              state: {
+                status: 'playing',
+                currentTrack: null,
+                position: 0,
+                duration: this.currentDuration,
+                volume: this.currentVolume
+              }
+            });
+            break;
+            
+          case 'file-loaded':
+            // File loaded successfully
+            this.updateDuration();
+            break;
+            
+          case 'seek':
+            // Position changed due to seeking
+            if (response.data && typeof response.data === 'object') {
+              const seekData = response.data as any;
+              if (typeof seekData.position === 'number') {
+                this.currentPosition = seekData.position;
+              }
+            }
+            break;
+            
+          default:
+            // Log other events for debugging
+            console.log(`MPV Event: ${response.event}`);
+            break;
+        }
+      }
+
+      // Handle legacy event data format (fallback)
       if (response.data && typeof response.data === 'object') {
         const eventData = response.data as any;
         
-        if (eventData.event === 'playback-restart') {
-          // Track started playing
-          this.emitEvent('track_started', {
-            position: 0,
-            state: {
-              status: 'playing',
-              currentTrack: null,
-              position: 0,
-              duration: this.currentDuration,
-              volume: this.currentVolume
-            }
-          });
-        } else if (eventData.event === 'end-file') {
+        if (eventData.event === 'end-file') {
           // Track finished naturally
-          this.isCurrentlyPlaying = false;
-          this.stopPositionTracking();
-          
-          // Emit track finished event
-          // Requirements: 2.4
-          this.emitEvent('track_finished', {
-            position: this.currentPosition,
-            state: {
-              status: 'idle',
-              currentTrack: null,
-              position: this.currentPosition,
-              duration: this.currentDuration,
-              volume: this.currentVolume
-            }
-          });
-        } else if (eventData.event === 'file-loaded') {
-          // File loaded successfully
-          this.updateDuration();
-        } else if (eventData.event === 'seek') {
-          // Position changed due to seeking
-          if (typeof eventData.position === 'number') {
-            this.currentPosition = eventData.position;
-          }
+          console.log('MPV end-file event in data received');
+          this.handleTrackEnd();
         }
       }
     } catch (error) {
@@ -616,6 +689,100 @@ export class PlaybackController extends EventEmitter implements IPlaybackControl
         }
       });
     }
+  }
+
+  /**
+   * Handle property change events from MPV
+   * Requirements: 2.4, 2.5, 2.6
+   */
+  private handlePropertyChange(response: MPVResponse): void {
+    try {
+      const { name, data } = response;
+      console.log(`MPV Property Change: ${name} = ${JSON.stringify(data)}`);
+
+      switch (name) {
+        case 'playback-time':
+          // Update current position
+          if (typeof data === 'number' && data >= 0) {
+            this.currentPosition = data;
+          }
+          break;
+
+        case 'eof-reached':
+          // Track has reached end of file
+          if (data === true) {
+            console.log('MPV reported end-of-file reached');
+            this.handleTrackEnd();
+          }
+          break;
+
+        case 'pause':
+          // Playback pause state changed
+          if (typeof data === 'boolean') {
+            const wasPlaying = this.isCurrentlyPlaying;
+            this.isCurrentlyPlaying = !data;
+            
+            // Only emit events if state actually changed
+            if (wasPlaying !== this.isCurrentlyPlaying) {
+              if (this.isCurrentlyPlaying) {
+                this.startPositionTracking();
+              } else {
+                this.stopPositionTracking();
+              }
+
+              this.emitEvent('state_changed', {
+                state: {
+                  status: this.isCurrentlyPlaying ? 'playing' : 'paused',
+                  currentTrack: null,
+                  position: this.currentPosition,
+                  duration: this.currentDuration,
+                  volume: this.currentVolume
+                }
+              });
+            }
+          }
+          break;
+
+        case 'duration':
+          // Track duration available
+          if (typeof data === 'number' && data > 0) {
+            this.currentDuration = data;
+          }
+          break;
+
+        default:
+          // Log unknown properties for debugging
+          console.log(`Unknown MPV property: ${name} = ${JSON.stringify(data)}`);
+          break;
+      }
+    } catch (error) {
+      console.error('Error handling property change:', error);
+    }
+  }
+
+  /**
+   * Handle track end event
+   * Requirements: 2.4, 2.5
+   */
+  private handleTrackEnd(): void {
+    console.log('Track ended, emitting track_finished event');
+    
+    // Update internal state
+    this.isCurrentlyPlaying = false;
+    this.stopPositionTracking();
+    
+    // Emit track finished event
+    // Requirements: 2.4
+    this.emitEvent('track_finished', {
+      position: this.currentPosition,
+      state: {
+        status: 'idle',
+        currentTrack: null,
+        position: this.currentPosition,
+        duration: this.currentDuration,
+        volume: this.currentVolume
+      }
+    });
   }
 
   /**

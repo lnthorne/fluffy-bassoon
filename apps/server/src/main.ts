@@ -17,11 +17,13 @@ import {
   IPCClient
 } from './infrastructure/playback';
 import { DependencyValidator } from './infrastructure/validation/dependency-validator';
+import { HTTPServer, HTTPServerConfig, HTTPServerDependencies } from './infrastructure/web';
 
 // Global service instances
 let queueService: QueueService | null = null;
 let playbackOrchestrator: PlaybackOrchestrator | null = null;
 let processManager: ProcessManager | null = null;
+let httpServer: HTTPServer | null = null;
 
 /**
  * Initialize the Party Jukebox server with dependency validation
@@ -79,12 +81,30 @@ async function initializeServer(): Promise<void> {
       throw new Error(`Failed to start playback orchestrator: ${startResult.error}`);
     }
     
+    // Initialize and start HTTP server
+    console.log('Initializing HTTP server...');
+    const httpConfig: HTTPServerConfig = {
+      port: 3000,
+      host: '0.0.0.0', // Bind to all interfaces for local network access
+      logger: process.env.NODE_ENV !== 'test',
+    };
+    
+    const httpDependencies: HTTPServerDependencies = {
+      queueService,
+    };
+    
+    httpServer = new HTTPServer(httpConfig);
+    await httpServer.initialize(httpDependencies);
+    await httpServer.start();
+    
     // Set up graceful shutdown
     setupGracefulShutdown();
     
     console.log('✅ Party Jukebox Server ready');
     console.log('   - Queue management: Active');
     console.log('   - Playback orchestration: Active');
+    console.log('   - HTTP server: Active on port 3000');
+    console.log('   - WebSocket server: Active at /ws');
     console.log('   - External dependencies: Validated');
     
   } catch (error) {
@@ -139,7 +159,14 @@ async function cleanup(): Promise<void> {
   console.log('Cleaning up services...');
   
   try {
-    // Stop playback orchestrator first
+    // Stop HTTP server first
+    if (httpServer) {
+      console.log('Stopping HTTP server...');
+      await httpServer.stop();
+      httpServer = null;
+    }
+    
+    // Stop playback orchestrator
     if (playbackOrchestrator) {
       console.log('Stopping playback orchestrator...');
       await playbackOrchestrator.stop();
@@ -162,6 +189,13 @@ async function cleanup(): Promise<void> {
   } catch (error) {
     console.error('Cleanup failed:', error);
   }
+}
+
+/**
+ * Get the HTTP server instance (for testing or external access)
+ */
+function getHTTPServer(): HTTPServer | null {
+  return httpServer;
 }
 
 /**
@@ -190,6 +224,7 @@ if (require.main === module) {
 export { 
   initializeServer, 
   cleanup,
+  getHTTPServer,
   getQueueService,
   getPlaybackOrchestrator,
   // Legacy exports for compatibility

@@ -90,7 +90,9 @@ export interface MPVCommand {
 export interface MPVResponse {
   readonly data?: any;
   readonly error: string;
-  readonly request_id: number;
+  readonly request_id?: number;
+  readonly event?: string;
+  readonly name?: string;
 }
 
 /**
