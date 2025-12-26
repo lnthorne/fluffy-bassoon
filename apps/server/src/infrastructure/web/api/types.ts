@@ -8,7 +8,21 @@
  */
 
 import { FastifyRequest, FastifyReply, RouteGenericInterface } from 'fastify';
-import { Track, User, QueueItem, QueueState } from '@party-jukebox/shared';
+import { Track, User, QueueItem, QueueState, SearchResult } from '@party-jukebox/shared';
+
+// Temporary interface until SearchService compilation issues are resolved
+interface PaginatedSearchResults {
+  results: SearchResult[];
+  pagination: {
+    currentPage: number;
+    totalResults: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+    nextPageToken?: string;
+    prevPageToken?: string;
+    resultsPerPage: number;
+  };
+}
 
 /**
  * Standard API error response format
@@ -115,8 +129,9 @@ export interface AddTrackRequest {
   track: {
     title: string;
     artist: string;
-    sourceUrl: string;
+    videoId: string;
     duration: number;
+    thumbnailUrl?: string;
   };
   user: {
     nickname: string;
@@ -200,4 +215,30 @@ export interface PlaybackStatusRouteInterface extends RouteGenericInterface {
 
 export interface PlaybackActionRouteInterface extends RouteGenericInterface {
   Reply: PlaybackActionResponse;
+}
+
+/**
+ * Search API Request/Response Types
+ * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.7
+ */
+
+// Search request query parameters
+export interface SearchRequest {
+  q: string; // search query
+  page?: number; // page number (default: 1)
+  limit?: number; // results per page (default: 20, max: 50)
+}
+
+// Search response
+export interface SearchResponse {
+  success: boolean;
+  data?: PaginatedSearchResults;
+  error?: APIError;
+  timestamp: string;
+}
+
+// Search API route interface for Fastify typing
+export interface SearchRouteInterface extends RouteGenericInterface {
+  Querystring: SearchRequest;
+  Reply: SearchResponse;
 }

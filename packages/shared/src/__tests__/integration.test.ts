@@ -16,7 +16,7 @@ describe('Core Types Integration', () => {
     const trackResult = TrackValidator.create({
       title: 'Test Song',
       artist: 'Test Artist',
-      sourceUrl: 'https://youtube.com/watch?v=dQw4w9WgXcQ',
+      videoId: 'dQw4w9WgXcQ',
       duration: 180
     });
 
@@ -55,7 +55,7 @@ describe('Core Types Integration', () => {
     const invalidTrackResult = TrackValidator.create({
       title: '',
       artist: 'Test Artist',
-      sourceUrl: 'invalid-url',
+      videoId: 'invalid-id',
       duration: -1
     });
 

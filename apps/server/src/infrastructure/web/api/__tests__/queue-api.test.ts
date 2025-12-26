@@ -99,7 +99,7 @@ describe('Queue API Integration', () => {
         track: {
           title: 'Test Song',
           artist: 'Test Artist',
-          sourceUrl: 'https://youtube.com/watch?v=test123',
+          videoId: 'test1234567',
           duration: 180,
         },
         user: {
@@ -139,7 +139,7 @@ describe('Queue API Integration', () => {
         track: {
           title: 'Test Song',
           artist: 'Test Artist',
-          sourceUrl: 'https://youtube.com/watch?v=test123',
+          videoId: 'test1234567',
           duration: 180,
         },
         user: {
@@ -173,7 +173,7 @@ describe('Queue API Integration', () => {
         track: {
           title: '', // Invalid empty title
           artist: 'Test Artist',
-          sourceUrl: 'https://youtube.com/watch?v=test123',
+          videoId: 'test1234567',
           duration: 180,
         },
         user: {
@@ -198,12 +198,12 @@ describe('Queue API Integration', () => {
       expect(body.error?.message).toContain('Invalid track data');
     });
 
-    it('should reject track with invalid source URL', async () => {
+    it('should reject track with invalid video ID', async () => {
       const payload: AddTrackRequest = {
         track: {
           title: 'Test Song',
           artist: 'Test Artist',
-          sourceUrl: 'not-a-youtube-url', // Invalid URL
+          videoId: 'invalid-id', // Invalid video ID
           duration: 180,
         },
         user: {
@@ -232,7 +232,7 @@ describe('Queue API Integration', () => {
         track: {
           title: 'Test Song',
           artist: 'Test Artist',
-          sourceUrl: 'https://youtube.com/watch?v=test123',
+          videoId: 'test1234567',
           duration: 180,
         },
         user: {
@@ -263,7 +263,7 @@ describe('Queue API Integration', () => {
         track: {
           title: 'Test Song',
           artist: 'Test Artist',
-          sourceUrl: 'https://youtube.com/watch?v=test123',
+          videoId: 'test1234567',
           duration: 180,
         },
         user: {

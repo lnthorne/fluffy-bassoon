@@ -7,8 +7,8 @@
  */
 
 // Domain entities and value objects
-export type { Track, TrackCreateData, TrackError } from './domain/Track';
-export { TrackValidator } from './domain/Track';
+export type { Track, TrackCreateData, TrackError, SearchResult } from './domain/Track';
+export { TrackValidator, VideoIdUtils, TrackFactory } from './domain/Track';
 
 export type { User, UserCreateData, UserError } from './domain/User';
 export { UserValidator } from './domain/User';

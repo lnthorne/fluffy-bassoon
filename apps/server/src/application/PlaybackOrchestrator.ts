@@ -5,7 +5,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { Result, QueueItem } from '@party-jukebox/shared';
+import { Result, QueueItem, VideoIdUtils } from '@party-jukebox/shared';
 import { IQueueService } from './QueueService';
 import { IPlaybackOrchestrator, IStreamResolver, IPlaybackController } from '../domain/playback/interfaces';
 import { 
@@ -477,8 +477,9 @@ export class PlaybackOrchestrator extends EventEmitter implements IPlaybackOrche
       };
       this.emitStateChange();
 
-      // Resolve stream URL
-      const resolutionResult = await this.streamResolver.resolveStream(track.track.sourceUrl);
+      // Resolve stream URL from video ID
+      const youtubeUrl = VideoIdUtils.constructYouTubeUrl(track.track.videoId);
+      const resolutionResult = await this.streamResolver.resolveStream(youtubeUrl);
       
       if (!resolutionResult.success) {
         if (this.isRunning) {
@@ -586,7 +587,7 @@ export class PlaybackOrchestrator extends EventEmitter implements IPlaybackOrche
 
     // Log the error with track context
     if (this.currentTrack) {
-      console.error(`Failed to resolve track: ${this.currentTrack.track.title} (${this.currentTrack.track.sourceUrl})`);
+      console.error(`Failed to resolve track: ${this.currentTrack.track.title} (${this.currentTrack.track.videoId})`);
     }
 
     // Emit error event

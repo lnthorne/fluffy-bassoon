@@ -81,7 +81,7 @@ describe('PlaybackOrchestrator Skip Bug', () => {
     const track1Result = TrackValidator.create({
       title: 'Track 1',
       artist: 'Artist 1',
-      sourceUrl: 'https://youtube.com/watch?v=track1',
+      videoId: 'track123456',
       duration: 180
     });
     expect(track1Result.success).toBe(true);
@@ -90,7 +90,7 @@ describe('PlaybackOrchestrator Skip Bug', () => {
     const track2Result = TrackValidator.create({
       title: 'Track 2',
       artist: 'Artist 2',
-      sourceUrl: 'https://youtube.com/watch?v=track2',
+      videoId: 'track234567',
       duration: 200
     });
     expect(track2Result.success).toBe(true);
@@ -99,7 +99,7 @@ describe('PlaybackOrchestrator Skip Bug', () => {
     const track3Result = TrackValidator.create({
       title: 'Track 3',
       artist: 'Artist 3',
-      sourceUrl: 'https://youtube.com/watch?v=track3',
+      videoId: 'track345678',
       duration: 220
     });
     expect(track3Result.success).toBe(true);
@@ -186,7 +186,7 @@ describe('PlaybackOrchestrator Skip Bug', () => {
       const trackResult = TrackValidator.create({
         title: `Track ${i}`,
         artist: `Artist ${i}`,
-        sourceUrl: `https://youtube.com/watch?v=track${i}`,
+        videoId: `track${i}00000`.substring(0, 11),
         duration: 180 + i * 10
       });
       expect(trackResult.success).toBe(true);
