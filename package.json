@@ -1,0 +1,18 @@
+{
+  "name": "party-jukebox",
+  "version": "1.0.0",
+  "description": "Party Jukebox - Portable music appliance for parties",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "dev:server": "npm run dev --workspace=@party-jukebox/server"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
