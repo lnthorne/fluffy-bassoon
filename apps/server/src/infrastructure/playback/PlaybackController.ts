@@ -12,7 +12,8 @@ import {
   PlaybackEventListener, 
   MPVCommand, 
   MPVResponse,
-  MpvOptions 
+  MpvOptions,
+  PlaybackState 
 } from '../../domain/playback/types';
 import { PlaybackError } from '../../domain/playback/errors';
 
@@ -78,9 +79,11 @@ export class PlaybackController extends EventEmitter implements IPlaybackControl
       const loadResponse = await this.sendCommandWithRetry(loadCommand);
       if (loadResponse.error !== 'success') {
         console.error('Failed to load stream:', loadResponse.error);
+        const error = 'STREAM_UNAVAILABLE' as PlaybackError;
+        this.handleTrackFailure(error, 'loadAndPlay - load stream');
         return { 
           success: false, 
-          error: 'STREAM_UNAVAILABLE',
+          error,
         };
       }
 
@@ -92,9 +95,11 @@ export class PlaybackController extends EventEmitter implements IPlaybackControl
       const playResponse = await this.sendCommandWithRetry(playCommand);
       if (playResponse.error !== 'success') {
         console.error('Failed to start playback:', playResponse.error);
+        const error = 'MPV_NOT_RESPONDING' as PlaybackError;
+        this.handleTrackFailure(error, 'loadAndPlay - start playback');
         return { 
           success: false, 
-          error: 'MPV_NOT_RESPONDING'
+          error
         };
       }
 
@@ -113,16 +118,25 @@ export class PlaybackController extends EventEmitter implements IPlaybackControl
       // Emit track started event
       // Requirements: 2.4, 2.5
       this.emitEvent('track_started', {
-        position: 0
+        position: 0,
+        state: {
+          status: 'playing',
+          currentTrack: null,
+          position: 0,
+          duration: this.currentDuration,
+          volume: this.currentVolume
+        }
       });
 
       return { success: true, value: undefined };
 
     } catch (error) {
       console.error('Load and play failed:', error);
+      const playbackError = 'PROCESS_CRASHED' as PlaybackError;
+      this.handleTrackFailure(playbackError, 'loadAndPlay - exception');
       return { 
         success: false, 
-        error: 'PROCESS_CRASHED'
+        error: playbackError
       };
     }
   }
@@ -384,6 +398,20 @@ export class PlaybackController extends EventEmitter implements IPlaybackControl
   }
 
   /**
+   * Get current complete playback state
+   * Requirements: 4.1, 4.2, 4.3, 4.6
+   */
+  getCurrentState(): PlaybackState {
+    return {
+      status: this.isCurrentlyPlaying ? 'playing' : 'idle',
+      currentTrack: null, // Will be managed by orchestrator
+      position: this.currentPosition,
+      duration: this.currentDuration,
+      volume: this.currentVolume
+    };
+  }
+
+  /**
    * Add event listener for playback events
    * Requirements: 2.4, 2.5, 4.2, 4.4, 5.7
    */
@@ -535,23 +563,58 @@ export class PlaybackController extends EventEmitter implements IPlaybackControl
         if (eventData.event === 'playback-restart') {
           // Track started playing
           this.emitEvent('track_started', {
-            position: 0
+            position: 0,
+            state: {
+              status: 'playing',
+              currentTrack: null,
+              position: 0,
+              duration: this.currentDuration,
+              volume: this.currentVolume
+            }
           });
         } else if (eventData.event === 'end-file') {
-          // Track finished
+          // Track finished naturally
           this.isCurrentlyPlaying = false;
           this.stopPositionTracking();
           
+          // Emit track finished event
+          // Requirements: 2.4
           this.emitEvent('track_finished', {
-            position: this.currentPosition
+            position: this.currentPosition,
+            state: {
+              status: 'idle',
+              currentTrack: null,
+              position: this.currentPosition,
+              duration: this.currentDuration,
+              volume: this.currentVolume
+            }
           });
         } else if (eventData.event === 'file-loaded') {
           // File loaded successfully
           this.updateDuration();
+        } else if (eventData.event === 'seek') {
+          // Position changed due to seeking
+          if (typeof eventData.position === 'number') {
+            this.currentPosition = eventData.position;
+          }
         }
       }
     } catch (error) {
       console.error('Error handling MPV event:', error);
+      
+      // Emit error event for MPV event handling failures
+      // Requirements: 2.5, 5.7
+      this.emitEvent('error_occurred', {
+        error: 'MPV_NOT_RESPONDING' as PlaybackError,
+        state: {
+          status: 'error',
+          currentTrack: null,
+          position: this.currentPosition,
+          duration: this.currentDuration,
+          volume: this.currentVolume,
+          error: 'MPV_NOT_RESPONDING' as PlaybackError
+        }
+      });
     }
   }
 
@@ -569,13 +632,13 @@ export class PlaybackController extends EventEmitter implements IPlaybackControl
         try {
           const position = await this.getPosition();
           
-          // Emit progress update
+          // Emit progress update with complete state information
           // Requirements: 4.4, 5.7
           this.emitEvent('progress_update', {
             position,
             state: {
               status: 'playing',
-              currentTrack: null,
+              currentTrack: null, // Will be set by orchestrator
               position,
               duration: this.currentDuration,
               volume: this.currentVolume
@@ -583,6 +646,19 @@ export class PlaybackController extends EventEmitter implements IPlaybackControl
           });
         } catch (error) {
           console.error('Position tracking error:', error);
+          // Emit error event for position tracking failures
+          // Requirements: 2.5, 5.7
+          this.emitEvent('error_occurred', {
+            error: 'MPV_NOT_RESPONDING' as PlaybackError,
+            state: {
+              status: 'error',
+              currentTrack: null,
+              position: this.currentPosition,
+              duration: this.currentDuration,
+              volume: this.currentVolume,
+              error: 'MPV_NOT_RESPONDING' as PlaybackError
+            }
+          });
         }
       }
     }, 1000); // Update every second
@@ -624,8 +700,17 @@ export class PlaybackController extends EventEmitter implements IPlaybackControl
       } catch (error) {
         console.error('Health check failed:', error);
         // Emit error event
+        // Requirements: 2.5, 5.7
         this.emitEvent('error_occurred', {
-          error: 'MPV_NOT_RESPONDING' as PlaybackError
+          error: 'MPV_NOT_RESPONDING' as PlaybackError,
+          state: {
+            status: 'error',
+            currentTrack: null,
+            position: this.currentPosition,
+            duration: this.currentDuration,
+            volume: this.currentVolume,
+            error: 'MPV_NOT_RESPONDING' as PlaybackError
+          }
         });
       }
     }, 30000); // Check every 30 seconds
@@ -648,13 +733,48 @@ export class PlaybackController extends EventEmitter implements IPlaybackControl
    * Requirements: 2.4, 2.5, 4.2, 4.4, 5.7
    */
   private emitEvent(type: PlaybackEvent['type'], data: PlaybackEvent['data']): void {
-    const event: PlaybackEvent = {
-      type,
-      timestamp: new Date(),
-      data
-    };
+    try {
+      const event: PlaybackEvent = {
+        type,
+        timestamp: new Date(),
+        data
+      };
 
-    this.emit('playback_event', event);
+      // Emit event asynchronously to ensure non-blocking delivery
+      // Requirements: 5.7
+      process.nextTick(() => {
+        this.emit('playback_event', event);
+      });
+    } catch (error) {
+      // Prevent event emission errors from crashing the system
+      console.error('Failed to emit playback event:', error);
+    }
+  }
+
+  /**
+   * Handle track failure and emit appropriate events
+   * Requirements: 2.5, 5.1, 5.2, 5.7
+   */
+  private handleTrackFailure(error: PlaybackError, context: string): void {
+    console.error(`Track failed in ${context}:`, error);
+    
+    // Update internal state
+    this.isCurrentlyPlaying = false;
+    this.stopPositionTracking();
+    
+    // Emit track failed event
+    // Requirements: 2.5, 5.7
+    this.emitEvent('track_failed', {
+      error,
+      state: {
+        status: 'error',
+        currentTrack: null,
+        position: this.currentPosition,
+        duration: this.currentDuration,
+        volume: this.currentVolume,
+        error
+      }
+    });
   }
 
   /**

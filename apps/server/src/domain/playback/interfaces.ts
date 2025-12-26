@@ -102,6 +102,12 @@ export interface IPlaybackController {
   isPlaying(): boolean;
 
   /**
+   * Get current complete playback state
+   * Requirements: 4.1, 4.2, 4.3, 4.6
+   */
+  getCurrentState(): PlaybackState;
+
+  /**
    * Add event listener for playback events
    * Requirements: 2.4, 2.5, 4.2, 4.4, 5.7
    */

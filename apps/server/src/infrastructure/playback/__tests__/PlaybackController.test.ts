@@ -220,9 +220,71 @@ describe('PlaybackController', () => {
       const streamUrl = 'https://example.com/stream.mp3';
       await playbackController.loadAndPlay(streamUrl);
       
+      // Wait for async event emission
+      await new Promise(resolve => process.nextTick(resolve));
+      
       // Should have emitted at least a track_started event
       expect(events.length).toBeGreaterThan(0);
       expect(events.some(e => e.type === 'track_started')).toBe(true);
+    });
+
+    it('should emit state change events during pause/resume', async () => {
+      const events: PlaybackEvent[] = [];
+      const listener = (event: PlaybackEvent) => {
+        events.push(event);
+      };
+      
+      playbackController.addEventListener(listener);
+      
+      const streamUrl = 'https://example.com/stream.mp3';
+      await playbackController.loadAndPlay(streamUrl);
+      await playbackController.pause();
+      
+      // Wait for async event emission
+      await new Promise(resolve => process.nextTick(resolve));
+      
+      // Should have emitted state_changed event for pause
+      expect(events.some(e => e.type === 'state_changed')).toBe(true);
+      const stateChangeEvent = events.find(e => e.type === 'state_changed');
+      expect(stateChangeEvent?.data.state?.status).toBe('paused');
+    });
+
+    it('should emit progress updates during playback', async () => {
+      const events: PlaybackEvent[] = [];
+      const listener = (event: PlaybackEvent) => {
+        events.push(event);
+      };
+      
+      playbackController.addEventListener(listener);
+      
+      const streamUrl = 'https://example.com/stream.mp3';
+      await playbackController.loadAndPlay(streamUrl);
+      
+      // Wait for progress update (position tracking runs every 1000ms)
+      await new Promise(resolve => setTimeout(resolve, 1100));
+      
+      // Should have emitted progress_update events
+      expect(events.some(e => e.type === 'progress_update')).toBe(true);
+    });
+  });
+
+  describe('state management', () => {
+    it('should return current playback state', async () => {
+      const state = playbackController.getCurrentState();
+      
+      expect(state).toHaveProperty('status');
+      expect(state).toHaveProperty('position');
+      expect(state).toHaveProperty('duration');
+      expect(state).toHaveProperty('volume');
+      expect(state.status).toBe('idle');
+    });
+
+    it('should update state during playback', async () => {
+      const streamUrl = 'https://example.com/stream.mp3';
+      await playbackController.loadAndPlay(streamUrl);
+      
+      const state = playbackController.getCurrentState();
+      expect(state.status).toBe('playing');
     });
   });
 
