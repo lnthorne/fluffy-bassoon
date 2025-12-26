@@ -258,7 +258,7 @@ describe('API Infrastructure', () => {
         track: {
           title: 'Test Song',
           artist: 'Test Artist',
-          sourceUrl: 'https://youtube.com/watch?v=test',
+          videoId: 'test1234567',
           duration: 180,
         },
         user: {

@@ -115,8 +115,9 @@ export interface AddTrackRequest {
   track: {
     title: string;
     artist: string;
-    sourceUrl: string;
+    videoId: string;
     duration: number;
+    thumbnailUrl?: string;
   };
   user: {
     nickname: string;

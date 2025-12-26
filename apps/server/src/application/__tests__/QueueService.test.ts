@@ -26,9 +26,9 @@ describe('QueueService Property Tests', () => {
           track: fc.record({
             title: fc.string({ minLength: 1, maxLength: 100 }).filter((s: string) => s.trim().length > 0),
             artist: fc.string({ minLength: 1, maxLength: 100 }).filter((s: string) => s.trim().length > 0),
-            sourceUrl: fc.constantFrom(
-              'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-              'https://youtube.com/watch?v=abc123def456'
+            videoId: fc.constantFrom(
+              'dQw4w9WgXcQ',
+              'abc123def456'
             ),
             duration: fc.integer({ min: 1, max: 7200 })
           }),
@@ -62,9 +62,9 @@ describe('QueueService Property Tests', () => {
           track: fc.record({
             title: fc.string({ minLength: 1, maxLength: 100 }).filter((s: string) => s.trim().length > 0),
             artist: fc.string({ minLength: 1, maxLength: 100 }).filter((s: string) => s.trim().length > 0),
-            sourceUrl: fc.constantFrom(
-              'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-              'https://youtube.com/watch?v=abc123def456'
+            videoId: fc.constantFrom(
+              'dQw4w9WgXcQ',
+              'abc123def456'
             ),
             duration: fc.integer({ min: 1, max: 7200 })
           }),
@@ -201,7 +201,7 @@ describe('QueueService Integration Tests', () => {
       const trackResult = TrackValidator.create({
         title: 'Test Song',
         artist: 'Test Artist',
-        sourceUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        videoId: 'dQw4w9WgXcQ',
         duration: 180
       });
       expect(trackResult.success).toBe(true);
@@ -265,7 +265,7 @@ describe('QueueService Integration Tests', () => {
       const trackResult = TrackValidator.create({
         title: 'Test Song',
         artist: 'Test Artist',
-        sourceUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        videoId: 'dQw4w9WgXcQ',
         duration: 180
       });
       if (!trackResult.success) return;
@@ -330,7 +330,7 @@ describe('QueueService Integration Tests', () => {
       const trackResult = TrackValidator.create({
         title: 'Test Song',
         artist: 'Test Artist',
-        sourceUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        videoId: 'dQw4w9WgXcQ',
         duration: 180
       });
       if (!trackResult.success) return;
@@ -353,7 +353,7 @@ describe('QueueService Integration Tests', () => {
       const trackResult = TrackValidator.create({
         title: 'Valid Song',
         artist: 'Valid Artist',
-        sourceUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        videoId: 'dQw4w9WgXcQ',
         duration: 180
       });
       if (!trackResult.success) return;
@@ -400,13 +400,13 @@ describe('QueueService Integration Tests', () => {
       const track1Result = TrackValidator.create({
         title: 'First Song',
         artist: 'Artist 1',
-        sourceUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        videoId: 'dQw4w9WgXcQ',
         duration: 180
       });
       const track2Result = TrackValidator.create({
         title: 'Second Song',
         artist: 'Artist 2',
-        sourceUrl: 'https://www.youtube.com/watch?v=abc123def456',
+        videoId: 'abc123def456',
         duration: 200
       });
       const userResult = UserValidator.create({
@@ -481,7 +481,7 @@ describe('QueueService Integration Tests', () => {
         const trackResult = TrackValidator.create({
           title: `Song ${i}`,
           artist: `Artist ${i}`,
-          sourceUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          videoId: 'dQw4w9WgXcQ',
           duration: 180 + i * 10
         });
         if (trackResult.success) {

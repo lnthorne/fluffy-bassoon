@@ -48,7 +48,7 @@ export class ErrorFactory {
     const messages: Record<TrackError, string> = {
       INVALID_TITLE: 'Track title must be a non-empty string',
       INVALID_ARTIST: 'Track artist must be a non-empty string',
-      INVALID_SOURCE_URL: 'Source URL must be a valid YouTube URL',
+      INVALID_VIDEO_ID: 'Video ID must be a valid YouTube video ID (11 characters)',
       INVALID_DURATION: 'Duration must be a positive integer (seconds)'
     };
 

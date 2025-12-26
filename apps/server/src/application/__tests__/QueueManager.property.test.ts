@@ -22,10 +22,10 @@ describe('QueueManager Property Tests', () => {
           track: fc.record({
             title: fc.string({ minLength: 1, maxLength: 100 }).filter((s: string) => s.trim().length > 0),
             artist: fc.string({ minLength: 1, maxLength: 100 }).filter((s: string) => s.trim().length > 0),
-            sourceUrl: fc.constantFrom(
-              'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-              'https://youtube.com/watch?v=abc123def456',
-              'https://youtu.be/xyz789uvw012'
+            videoId: fc.constantFrom(
+              'dQw4w9WgXcQ',
+              'abc123def456',
+              'xyz789uvw012'
             ),
             duration: fc.integer({ min: 1, max: 7200 }) // 1 second to 2 hours
           }),
@@ -163,10 +163,10 @@ describe('QueueManager Property Tests', () => {
         track: fc.record({
           title: fc.string({ minLength: 1, maxLength: 100 }).filter((s: string) => s.trim().length > 0),
           artist: fc.string({ minLength: 1, maxLength: 100 }).filter((s: string) => s.trim().length > 0),
-          sourceUrl: fc.constantFrom(
-            'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-            'https://youtube.com/watch?v=abc123def456',
-            'https://youtu.be/xyz789uvw012'
+          videoId: fc.constantFrom(
+            'dQw4w9WgXcQ',
+            'abc123def456',
+            'xyz789uvw012'
           ),
           duration: fc.integer({ min: 1, max: 7200 }) // 1 second to 2 hours
         }),

@@ -124,7 +124,7 @@ describe('Playback Skip Race Condition', () => {
       const trackResult = TrackValidator.create({
         title: `Track ${i}`,
         artist: `Artist ${i}`,
-        sourceUrl: `https://youtube.com/watch?v=track${i}`,
+        videoId: `track${i}00000`.substring(0, 11),
         duration: 180
       });
       if (!trackResult.success) throw new Error(`Failed to create track ${i}`);
@@ -203,7 +203,7 @@ describe('Playback Skip Race Condition', () => {
       const trackResult = TrackValidator.create({
         title: `Track ${i}`,
         artist: `Artist ${i}`,
-        sourceUrl: `https://youtube.com/watch?v=track${i}`,
+        videoId: `track${i}00000`.substring(0, 11),
         duration: 180
       });
       if (!trackResult.success) throw new Error(`Failed to create track ${i}`);
@@ -256,7 +256,7 @@ describe('Playback Skip Race Condition', () => {
       const trackResult = TrackValidator.create({
         title: `Song ${i}`,
         artist: `Artist ${i}`,
-        sourceUrl: `https://youtube.com/watch?v=song${i}`,
+        videoId: `song${i}000000`.substring(0, 11),
         duration: 180
       });
       if (!trackResult.success) throw new Error(`Failed to create track ${i}`);
@@ -329,7 +329,7 @@ describe('Playback Skip Race Condition', () => {
       const trackResult = TrackValidator.create({
         title: `Song ${i}`,
         artist: `Artist ${i}`,
-        sourceUrl: `https://youtube.com/watch?v=song${i}`,
+        videoId: `song${i}000000`.substring(0, 11),
         duration: 180
       });
       if (!trackResult.success) throw new Error(`Failed to create track ${i}`);

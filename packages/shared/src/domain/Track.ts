@@ -1,13 +1,14 @@
 /**
  * Track entity representing a music item with metadata
- * Requirements: 1.1, 1.3, 1.4
+ * Requirements: 2.1, 2.4, 4.3
  */
 export interface Track {
   readonly id: string;
   readonly title: string;
   readonly artist: string;
-  readonly sourceUrl: string;
+  readonly videoId: string;
   readonly duration: number; // seconds
+  readonly thumbnailUrl?: string;
 }
 
 /**
@@ -16,8 +17,10 @@ export interface Track {
 export interface TrackCreateData {
   title: string;
   artist: string;
-  sourceUrl: string;
+  videoId?: string;        // Preferred format
+  sourceUrl?: string;      // Alternative: full YouTube URL
   duration: number;
+  thumbnailUrl?: string;
 }
 
 /**
@@ -33,15 +36,33 @@ export type Result<T, E> =
 export type TrackError = 
   | 'INVALID_TITLE'
   | 'INVALID_ARTIST'
-  | 'INVALID_SOURCE_URL'
+  | 'INVALID_VIDEO_ID'
   | 'INVALID_DURATION';
+
+/**
+ * Utility functions for video ID handling
+ */
+export class VideoIdUtils {
+  static constructYouTubeUrl(videoId: string): string {
+    return `https://www.youtube.com/watch?v=${videoId}`;
+  }
+
+  static isValidVideoId(value: string): boolean {
+    // YouTube video IDs are 11 characters, alphanumeric + underscore/hyphen
+    return /^[a-zA-Z0-9_-]{11}$/.test(value);
+  }
+
+  static extractVideoIdFromUrl(url: string): string | null {
+    // Helper function to extract video ID from YouTube URLs (for API flexibility)
+    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
+    return match ? match[1] : null;
+  }
+}
 
 /**
  * Track validation and creation functions
  */
 export class TrackValidator {
-  private static readonly YOUTUBE_URL_PATTERN = /^https:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[a-zA-Z0-9_-]+/;
-
   static validateTitle(title: string): boolean {
     return typeof title === 'string' && title.trim().length > 0;
   }
@@ -50,8 +71,8 @@ export class TrackValidator {
     return typeof artist === 'string' && artist.trim().length > 0;
   }
 
-  static validateSourceUrl(url: string): boolean {
-    return typeof url === 'string' && this.YOUTUBE_URL_PATTERN.test(url);
+  static validateVideoId(videoId: string): boolean {
+    return typeof videoId === 'string' && VideoIdUtils.isValidVideoId(videoId);
   }
 
   static validateDuration(duration: number): boolean {
@@ -67,8 +88,19 @@ export class TrackValidator {
       return { success: false, error: 'INVALID_ARTIST' };
     }
 
-    if (!this.validateSourceUrl(data.sourceUrl)) {
-      return { success: false, error: 'INVALID_SOURCE_URL' };
+    // Handle both video ID and URL inputs for API flexibility
+    let videoId: string | undefined = data.videoId;
+    
+    if (!videoId && data.sourceUrl) {
+      const extractedId = VideoIdUtils.extractVideoIdFromUrl(data.sourceUrl);
+      if (!extractedId) {
+        return { success: false, error: 'INVALID_VIDEO_ID' };
+      }
+      videoId = extractedId;
+    }
+
+    if (!videoId || !this.validateVideoId(videoId)) {
+      return { success: false, error: 'INVALID_VIDEO_ID' };
     }
 
     if (!this.validateDuration(data.duration)) {
@@ -79,10 +111,61 @@ export class TrackValidator {
       id: crypto.randomUUID(),
       title: data.title.trim(),
       artist: data.artist.trim(),
-      sourceUrl: data.sourceUrl,
-      duration: data.duration
+      videoId: videoId,
+      duration: data.duration,
+      ...(data.thumbnailUrl && { thumbnailUrl: data.thumbnailUrl })
     };
 
     return { success: true, value: track };
+  }
+}
+
+/**
+ * Search result interface for creating tracks from search results
+ */
+export interface SearchResult {
+  videoId: string;
+  title: string;
+  artist: string;
+  duration: number;
+  thumbnailUrl: string;
+  channelTitle: string;
+  publishedAt: string;
+}
+
+/**
+ * Factory for creating tracks from various sources
+ */
+export class TrackFactory {
+  static fromSearchResult(searchResult: SearchResult): TrackCreateData {
+    return {
+      title: searchResult.title,
+      artist: searchResult.artist,
+      videoId: searchResult.videoId,
+      duration: searchResult.duration,
+      thumbnailUrl: searchResult.thumbnailUrl
+    };
+  }
+
+  static fromUserInput(input: TrackCreateData): TrackCreateData {
+    // Handle both video ID and URL inputs for API flexibility
+    let videoId: string | undefined = input.videoId;
+    
+    if (!videoId && input.sourceUrl) {
+      const extractedId = VideoIdUtils.extractVideoIdFromUrl(input.sourceUrl);
+      if (!extractedId) {
+        throw new Error('Invalid YouTube URL format');
+      }
+      videoId = extractedId;
+    }
+
+    if (!videoId) {
+      throw new Error('Video ID is required');
+    }
+
+    return {
+      ...input,
+      videoId: videoId
+    };
   }
 }
