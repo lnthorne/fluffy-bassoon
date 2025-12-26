@@ -11,6 +11,7 @@ import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import { registerAPIRoutes } from './api';
+import { WebSocketServer, WebSocketServerConfig } from './websocket';
 import { IQueueService } from '../../application/QueueService';
 import { IPlaybackOrchestrator } from '../../domain/playback/interfaces';
 
@@ -37,6 +38,7 @@ export class HTTPServer {
   private config: HTTPServerConfig;
   private dependencies: HTTPServerDependencies | null = null;
   private startTime: Date | null = null;
+  private webSocketServer: WebSocketServer | null = null;
 
   constructor(config: HTTPServerConfig) {
     this.config = config;
@@ -75,6 +77,16 @@ export class HTTPServer {
           },
         },
       });
+
+      // Initialize WebSocket server
+      const wsConfig: WebSocketServerConfig = {
+        heartbeatInterval: 30000, // 30 seconds
+        connectionTimeout: 60000, // 60 seconds
+        maxConnections: 50, // As per requirements
+      };
+
+      this.webSocketServer = new WebSocketServer(wsConfig);
+      await this.webSocketServer.initialize(this.fastify);
 
       // Register routes and middleware
       this.registerMiddleware();
@@ -115,6 +127,11 @@ export class HTTPServer {
    */
   async stop(): Promise<void> {
     try {
+      // Shutdown WebSocket server first
+      if (this.webSocketServer) {
+        await this.webSocketServer.shutdown();
+      }
+
       await this.fastify.close();
       console.log('HTTP server stopped gracefully');
     } catch (error) {
@@ -144,6 +161,14 @@ export class HTTPServer {
    */
   getFastifyInstance(): FastifyInstance {
     return this.fastify;
+  }
+
+  /**
+   * Get the WebSocket server instance
+   * Requirements: 5.1
+   */
+  getWebSocketServer(): WebSocketServer | null {
+    return this.webSocketServer;
   }
 
   /**
@@ -179,9 +204,17 @@ export class HTTPServer {
     // Health check endpoint
     this.fastify.get('/health', async (request: FastifyRequest, reply: FastifyReply) => {
       const serverInfo = this.getServerInfo();
+      const wsStats = this.webSocketServer?.getConnectionStats() || {
+        totalConnections: 0,
+        controllerConnections: 0,
+        displayConnections: 0,
+        maxConnections: 0,
+      };
+
       return {
         status: 'healthy',
         server: serverInfo,
+        websocket: wsStats,
         timestamp: new Date().toISOString(),
       };
     });
