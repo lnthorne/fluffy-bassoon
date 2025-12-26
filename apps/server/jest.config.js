@@ -2,7 +2,12 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
-  testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
+  testMatch: ['**/__tests__/**/*.test.ts', '**/?(*.)+(spec|test).ts'],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/__tests__/setup/',
+    '/setup/'
+  ],
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },
@@ -12,8 +17,8 @@ module.exports = {
     '!src/**/*.test.ts',
     '!src/**/__tests__/**',
   ],
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@party-jukebox/shared$': '<rootDir>/../../packages/shared/src',
   },
-  setupFilesAfterEnv: ['<rootDir>/../../packages/shared/jest.setup.js'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
 };

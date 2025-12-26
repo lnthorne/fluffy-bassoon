@@ -10,11 +10,13 @@
     "test:watch": "jest --watch"
   },
   "dependencies": {
-    "@party-jukebox/shared": "file:../../packages/shared"
+    "@party-jukebox/shared": "file:../../packages/shared",
+    "which": "^4.0.0"
   },
   "devDependencies": {
     "@types/jest": "^29.0.0",
     "@types/node": "^20.0.0",
+    "@types/which": "^3.0.0",
     "fast-check": "^4.5.2",
     "jest": "^29.0.0",
     "ts-jest": "^29.0.0",
