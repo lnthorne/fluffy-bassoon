@@ -6,9 +6,13 @@
  * queue management and playback orchestration.
  */
 
+// Load environment variables from .env file
+import 'dotenv/config';
+
 import { QueueManager } from './application/QueueManager';
 import { RateLimiter } from './application/RateLimiter';
 import { QueueService } from './application/QueueService';
+import { SearchService } from './application/SearchService';
 import { PlaybackOrchestrator } from './application/PlaybackOrchestrator';
 import { 
   StreamResolver, 
@@ -16,11 +20,13 @@ import {
   ProcessManager,
   IPCClient
 } from './infrastructure/playback';
+import { YouTubeAdapter } from './infrastructure/youtube/YouTubeAdapter';
 import { DependencyValidator } from './infrastructure/validation/dependency-validator';
 import { HTTPServer, HTTPServerConfig, HTTPServerDependencies } from './infrastructure/web';
 
 // Global service instances
 let queueService: QueueService | null = null;
+let searchService: SearchService | null = null;
 let playbackOrchestrator: PlaybackOrchestrator | null = null;
 let processManager: ProcessManager | null = null;
 let httpServer: HTTPServer | null = null;
@@ -67,6 +73,33 @@ async function initializeServer(): Promise<void> {
     // Create queue service
     queueService = new QueueService(queueManager, rateLimiter);
     
+    // Initialize YouTube search service (required)
+    console.log('Initializing YouTube search service...');
+    const youtubeApiKey = process.env.YOUTUBE_API_KEY;
+    
+    if (!youtubeApiKey || !youtubeApiKey.trim()) {
+      throw new Error(
+        'YOUTUBE_API_KEY environment variable is required but not set. ' +
+        'Please set YOUTUBE_API_KEY to a valid YouTube Data API v3 key to start the server.'
+      );
+    }
+    
+    try {
+      const youtubeAdapter = new YouTubeAdapter({
+        apiKey: youtubeApiKey,
+        timeout: 5000, // 5 seconds as per requirements
+        maxResults: 50 // YouTube API limit
+      });
+      
+      searchService = new SearchService(youtubeAdapter);
+      console.log('✅ YouTube search service initialized');
+    } catch (error) {
+      throw new Error(
+        `Failed to initialize YouTube search service: ${error instanceof Error ? error.message : error}. ` +
+        'Please check your YOUTUBE_API_KEY is valid.'
+      );
+    }
+    
     // Create playback orchestrator with all dependencies
     playbackOrchestrator = new PlaybackOrchestrator(
       queueService,
@@ -92,6 +125,7 @@ async function initializeServer(): Promise<void> {
     const httpDependencies: HTTPServerDependencies = {
       queueService,
       playbackOrchestrator,
+      searchService, 
     };
     
     httpServer = new HTTPServer(httpConfig);
@@ -104,6 +138,7 @@ async function initializeServer(): Promise<void> {
     console.log('✅ Party Jukebox Server ready');
     console.log('   - Queue management: Active');
     console.log('   - Playback orchestration: Active');
+    console.log('   - YouTube search: Active');
     console.log('   - HTTP server: Active on port 3000');
     console.log('   - WebSocket server: Active at /ws');
     console.log('   - External dependencies: Validated');
@@ -182,14 +217,22 @@ async function cleanup(): Promise<void> {
       processManager = null;
     }
     
-    // Reset queue service
+    // Reset services
     queueService = null;
+    searchService = null;
     
     console.log('Cleanup completed');
     
   } catch (error) {
     console.error('Cleanup failed:', error);
   }
+}
+
+/**
+ * Get the search service instance (for testing or external access)
+ */
+function getSearchService(): SearchService | null {
+  return searchService;
 }
 
 /**
@@ -227,6 +270,7 @@ export {
   cleanup,
   getHTTPServer,
   getQueueService,
+  getSearchService,
   getPlaybackOrchestrator,
   // Legacy exports for compatibility
   RateLimiter 

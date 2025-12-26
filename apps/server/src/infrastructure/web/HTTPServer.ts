@@ -23,6 +23,15 @@ import {
 import { IQueueService } from '../../application/QueueService';
 import { IPlaybackOrchestrator } from '../../domain/playback/interfaces';
 
+// Temporary interface until SearchService compilation issues are resolved
+interface ISearchService {
+  search(params: { query: string; page?: number; limit?: number; pageToken?: string }): Promise<{
+    success: boolean;
+    value?: any;
+    error?: string;
+  }>;
+}
+
 export interface ServerInfo {
   port: number;
   host: string;
@@ -39,6 +48,7 @@ export interface HTTPServerConfig {
 export interface HTTPServerDependencies {
   queueService: IQueueService;
   playbackOrchestrator: IPlaybackOrchestrator;
+  searchService?: ISearchService;
   eventBroadcaster?: EventBroadcaster;
 }
 

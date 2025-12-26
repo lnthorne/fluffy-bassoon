@@ -101,7 +101,7 @@ describe('API Infrastructure', () => {
       const body = JSON.parse(response.body) as APIResponse;
       expect(body.success).toBe(false);
       expect(body.error?.code).toBe(API_ERROR_CODES.SERVICE_UNAVAILABLE);
-      expect(body.error?.message).toContain('YouTube search not yet implemented');
+      expect(body.error?.message).toContain('YouTube search service unavailable');
     });
 
     it('should return service unavailable for playback endpoints', async () => {

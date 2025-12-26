@@ -18,6 +18,9 @@ import {
   QueueStateResponse,
   PlaybackStatusResponse,
   PlaybackActionResponse,
+  SearchRequest,
+  SearchResponse,
+  SearchRouteInterface,
   AddTrackRouteInterface,
   QueueStateRouteInterface,
   PlaybackStatusRouteInterface,
@@ -25,7 +28,34 @@ import {
 } from './types';
 import { registerAPIMiddleware } from './middleware';
 import { HTTPServerDependencies } from '../HTTPServer';
-import { TrackValidator, UserValidator } from '@party-jukebox/shared';
+import { TrackValidator, UserValidator, SearchResult } from '@party-jukebox/shared';
+
+// Temporary interfaces until SearchService compilation issues are resolved
+interface ISearchService {
+  search(params: { query: string; page?: number; limit?: number; pageToken?: string }): Promise<{
+    success: boolean;
+    value?: {
+      results: SearchResult[];
+      pagination: {
+        currentPage: number;
+        totalResults: number;
+        hasNextPage: boolean;
+        hasPrevPage: boolean;
+        nextPageToken?: string;
+        prevPageToken?: string;
+        resultsPerPage: number;
+      };
+    };
+    error?: string;
+  }>;
+}
+
+interface SearchParams {
+  query: string;
+  page?: number;
+  limit?: number;
+  pageToken?: string;
+}
 
 /**
  * Register all API routes with the Fastify instance
@@ -53,6 +83,11 @@ export async function registerAPIRoutes(
             search: '/api/search',
             playback: '/api/playback',
           },
+          services: {
+            queueService: !!dependencies?.queueService,
+            playbackOrchestrator: !!dependencies?.playbackOrchestrator,
+            searchService: !!dependencies?.searchService,
+          },
         },
         timestamp: new Date().toISOString(),
       };
@@ -77,11 +112,16 @@ export async function registerAPIRoutes(
       apiInstance.post('/queue/add', createServiceUnavailableHandler('Add track to queue'));
     }
     
-    // Placeholder routes for future implementation
-    // These will be implemented in subsequent tasks
-    
-    // Search operations (Task 5)
-    apiInstance.get('/search', createPlaceholderHandler('YouTube search'));
+    // Search operations (Task 6)
+    if (dependencies?.searchService) {
+      // GET /api/search - Search for YouTube videos
+      apiInstance.get<SearchRouteInterface>('/search', async (request, reply) => {
+        return handleSearchVideos(request, reply, dependencies.searchService!);
+      });
+    } else {
+      // Fallback handler when search service is not available
+      apiInstance.get('/search', createServiceUnavailableHandler('YouTube search'));
+    }
     
     // Playback control (Task 6)
     if (dependencies?.playbackOrchestrator) {
@@ -164,6 +204,170 @@ function createServiceUnavailableHandler(operation: string) {
     
     reply.code(HTTP_STATUS.SERVICE_UNAVAILABLE).send(response);
   };
+}
+
+/**
+ * Handle GET /api/search - Search for YouTube videos
+ * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.7
+ */
+async function handleSearchVideos(
+  request: FastifyRequest<SearchRouteInterface>,
+  reply: FastifyReply,
+  searchService: ISearchService
+): Promise<void> {
+  try {
+    const { q: query, page = 1, limit = 20 } = request.query;
+    
+    // Validate required query parameter
+    if (!query || typeof query !== 'string' || !query.trim()) {
+      const error: APIError = {
+        code: API_ERROR_CODES.VALIDATION_FAILED,
+        message: 'Search query is required and must be a non-empty string',
+        details: {
+          field: 'q',
+          received: query,
+          expected: 'non-empty string'
+        },
+        timestamp: new Date().toISOString(),
+      };
+      
+      const response: SearchResponse = {
+        success: false,
+        error,
+        timestamp: new Date().toISOString(),
+      };
+      
+      reply.code(HTTP_STATUS.BAD_REQUEST).send(response);
+      return;
+    }
+    
+    // Validate and sanitize pagination parameters
+    let validatedPage = 1;
+    let validatedLimit = 20;
+    
+    if (page !== undefined) {
+      const pageNum = Number(page);
+      if (isNaN(pageNum) || pageNum < 1) {
+        validatedPage = 1; // Use default for invalid page
+      } else {
+        validatedPage = Math.floor(pageNum);
+      }
+    }
+    
+    if (limit !== undefined) {
+      const limitNum = Number(limit);
+      if (isNaN(limitNum) || limitNum < 1) {
+        validatedLimit = 20; // Use default for invalid limit
+      } else {
+        // Enforce maximum limit of 50 as per requirements
+        validatedLimit = Math.min(Math.floor(limitNum), 50);
+      }
+    }
+    
+    // Sanitize query string (trim whitespace, limit length)
+    const sanitizedQuery = query.trim().substring(0, 200); // Limit query length
+    
+    // Prepare search parameters for SearchService
+    const searchParams: SearchParams = {
+      query: sanitizedQuery,
+      page: validatedPage,
+      limit: validatedLimit
+    };
+    
+    // Call search service with validated parameters
+    const searchResult = await searchService.search(searchParams);
+    
+    if (!searchResult.success) {
+      // Handle search service errors
+      let apiError: APIError;
+      let statusCode: number;
+      
+      switch (searchResult.error) {
+        case 'INVALID_QUERY':
+          apiError = {
+            code: API_ERROR_CODES.VALIDATION_FAILED,
+            message: 'Invalid search query',
+            details: {
+              field: 'query',
+              reason: 'Query must be a non-empty string with maximum 100 characters'
+            },
+            timestamp: new Date().toISOString(),
+          };
+          statusCode = HTTP_STATUS.BAD_REQUEST;
+          break;
+          
+        case 'SERVICE_UNAVAILABLE':
+          apiError = {
+            code: API_ERROR_CODES.SERVICE_UNAVAILABLE,
+            message: 'YouTube search service is temporarily unavailable',
+            details: {
+              reason: 'API quota exceeded or service unavailable',
+              suggestion: 'Please try again later'
+            },
+            timestamp: new Date().toISOString(),
+          };
+          statusCode = HTTP_STATUS.SERVICE_UNAVAILABLE;
+          break;
+          
+        case 'YOUTUBE_API_ERROR':
+          apiError = {
+            code: API_ERROR_CODES.SERVICE_UNAVAILABLE,
+            message: 'YouTube API error occurred',
+            details: {
+              reason: 'External API error',
+              suggestion: 'Please try again later'
+            },
+            timestamp: new Date().toISOString(),
+          };
+          statusCode = HTTP_STATUS.SERVICE_UNAVAILABLE;
+          break;
+          
+        default:
+          apiError = {
+            code: API_ERROR_CODES.INTERNAL_ERROR,
+            message: 'Unknown search error',
+            timestamp: new Date().toISOString(),
+          };
+          statusCode = HTTP_STATUS.INTERNAL_SERVER_ERROR;
+      }
+      
+      const response: SearchResponse = {
+        success: false,
+        error: apiError,
+        timestamp: new Date().toISOString(),
+      };
+      
+      reply.code(statusCode).send(response);
+      return;
+    }
+    
+    // Success - return search results
+    const response: SearchResponse = {
+      success: true,
+      data: searchResult.value,
+      timestamp: new Date().toISOString(),
+    };
+    
+    reply.code(HTTP_STATUS.OK).send(response);
+    
+  } catch (error) {
+    console.error('Error searching videos:', error);
+    
+    // Generic internal server error for unexpected exceptions
+    const apiError: APIError = {
+      code: API_ERROR_CODES.INTERNAL_ERROR,
+      message: 'Internal server error during search',
+      timestamp: new Date().toISOString(),
+    };
+    
+    const response: SearchResponse = {
+      success: false,
+      error: apiError,
+      timestamp: new Date().toISOString(),
+    };
+    
+    reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR).send(response);
+  }
 }
 
 /**
