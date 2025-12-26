@@ -3,17 +3,16 @@
  * Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7
  */
 
-import { spawn } from 'child_process';
 import { Result } from '@party-jukebox/shared';
-import { IStreamResolver } from '../../domain/playback/interfaces';
+import { IStreamResolver, IProcessManager } from '../../domain/playback/interfaces';
 import { 
   ResolvedStream,
-  ResolutionCache,
   YtDlpOptions
 } from '../../domain/playback/types';
 import { 
   ResolutionError
 } from '../../domain/playback/errors';
+import { ResolutionCache } from './ResolutionCache';
 
 /**
  * Default yt-dlp options for audio-only stream resolution
@@ -23,15 +22,9 @@ const DEFAULT_YTDLP_OPTIONS: YtDlpOptions = {
   format: 'bestaudio',
   extractAudio: true,
   audioFormat: 'opus',
-  timeout: 30,
+  timeout: 30000, // 30 seconds in milliseconds
   retries: 3
 };
-
-/**
- * Cache expiration time in milliseconds (5 minutes)
- * Requirements: 6.1
- */
-const CACHE_EXPIRATION_MS = 5 * 60 * 1000;
 
 /**
  * YouTube URL validation pattern
@@ -42,13 +35,17 @@ const YOUTUBE_URL_PATTERN = /^https:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.
 /**
  * StreamResolver implementation for YouTube URL resolution using yt-dlp
  * Handles caching, timeout, retry logic, and stream validation
+ * Uses ProcessManager for external process management
  */
 export class StreamResolver implements IStreamResolver {
-  private readonly cache = new Map<string, ResolutionCache>();
+  private readonly cache: ResolutionCache;
   private readonly options: YtDlpOptions;
+  private readonly processManager: IProcessManager;
 
-  constructor(options: Partial<YtDlpOptions> = {}) {
+  constructor(processManager: IProcessManager, options: Partial<YtDlpOptions> = {}) {
+    this.processManager = processManager;
     this.options = { ...DEFAULT_YTDLP_OPTIONS, ...options };
+    this.cache = new ResolutionCache();
   }
 
   /**
@@ -65,17 +62,27 @@ export class StreamResolver implements IStreamResolver {
     }
 
     // Check cache first
-    const cached = this.getCachedResolution(youtubeUrl);
+    const cached = this.cache.get(youtubeUrl);
     if (cached) {
       return {
         success: true,
-        value: cached.resolvedStream
+        value: cached
       };
     }
 
     try {
-      // Resolve stream using yt-dlp
-      const resolved = await this.runYtDlp(youtubeUrl);
+      // Use ProcessManager to resolve stream using yt-dlp
+      const result = await this.processManager.runYtDlp(youtubeUrl, this.options);
+      
+      if (!result.success) {
+        // Map ProcessError to ResolutionError
+        return {
+          success: false,
+          error: this.mapProcessErrorToResolutionError(result.error)
+        };
+      }
+
+      const resolved = result.value;
       
       // Validate stream accessibility
       const isAccessible = await this.validateStream(resolved.streamUrl);
@@ -87,7 +94,7 @@ export class StreamResolver implements IStreamResolver {
       }
 
       // Cache the result
-      this.cacheResolution(youtubeUrl, resolved);
+      this.cache.set(youtubeUrl, resolved);
 
       return {
         success: true,
@@ -124,6 +131,22 @@ export class StreamResolver implements IStreamResolver {
   }
 
   /**
+   * Get cache statistics for monitoring
+   * Requirements: 6.1
+   */
+  getCacheStats() {
+    return this.cache.getStats();
+  }
+
+  /**
+   * Shutdown the resolver and cleanup resources
+   * Requirements: 6.1
+   */
+  shutdown(): void {
+    this.cache.shutdown();
+  }
+
+  /**
    * Validate YouTube URL format
    * Requirements: 1.1
    */
@@ -132,146 +155,26 @@ export class StreamResolver implements IStreamResolver {
   }
 
   /**
-   * Get cached resolution if available and not expired
-   * Requirements: 6.1
+   * Map ProcessError to ResolutionError
+   * Requirements: 1.3, 1.6, 1.7, 5.1, 5.4
    */
-  private getCachedResolution(url: string): ResolutionCache | null {
-    const cached = this.cache.get(url);
-    if (!cached) {
-      return null;
+  private mapProcessErrorToResolutionError(processError: string): ResolutionError {
+    switch (processError) {
+      case 'PROCESS_TIMEOUT':
+        return 'TIMEOUT';
+      case 'DEPENDENCY_MISSING':
+        return 'EXTRACTION_FAILED';
+      case 'PROCESS_CRASHED':
+        return 'EXTRACTION_FAILED';
+      case 'PROCESS_START_FAILED':
+        return 'EXTRACTION_FAILED';
+      case 'RESOURCE_LIMIT_EXCEEDED':
+        return 'NETWORK_ERROR';
+      case 'ZOMBIE_PROCESS_DETECTED':
+        return 'EXTRACTION_FAILED';
+      default:
+        return 'EXTRACTION_FAILED';
     }
-
-    // Check if cache entry has expired
-    if (new Date() > cached.expiresAt) {
-      this.cache.delete(url);
-      return null;
-    }
-
-    return cached;
-  }
-
-  /**
-   * Cache a resolved stream with expiration
-   * Requirements: 6.1
-   */
-  private cacheResolution(url: string, resolved: ResolvedStream): void {
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + CACHE_EXPIRATION_MS);
-
-    const cacheEntry: ResolutionCache = {
-      url,
-      resolvedStream: resolved,
-      timestamp: now,
-      expiresAt
-    };
-
-    this.cache.set(url, cacheEntry);
-  }
-
-  /**
-   * Run yt-dlp process to extract stream information
-   * Requirements: 1.1, 1.2, 1.3, 1.4, 1.6, 1.7
-   */
-  private async runYtDlp(url: string): Promise<ResolvedStream> {
-    return new Promise((resolve, reject) => {
-      const args = [
-        '--format', this.options.format,
-        '--get-url',
-        '--get-title',
-        '--get-duration',
-        '--get-format',
-        '--no-playlist',
-        '--no-warnings',
-        '--quiet',
-        url
-      ];
-
-      const process = spawn('yt-dlp', args, {
-        timeout: this.options.timeout * 1000,
-        stdio: ['ignore', 'pipe', 'pipe']
-      });
-
-      let stdout = '';
-      let stderr = '';
-
-      process.stdout?.on('data', (data) => {
-        stdout += data.toString();
-      });
-
-      process.stderr?.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      process.on('close', (code) => {
-        if (code === 0) {
-          try {
-            const resolved = this.parseYtDlpOutput(stdout);
-            resolve(resolved);
-          } catch (error) {
-            reject(new Error(`Failed to parse yt-dlp output: ${error}`));
-          }
-        } else {
-          reject(new Error(`yt-dlp failed with code ${code}: ${stderr}`));
-        }
-      });
-
-      process.on('error', (error) => {
-        reject(error);
-      });
-
-      // Handle timeout
-      process.on('timeout', () => {
-        process.kill('SIGKILL');
-        reject(new Error('yt-dlp process timed out'));
-      });
-    });
-  }
-
-  /**
-   * Parse yt-dlp output to extract stream information
-   * Requirements: 1.2, 1.3
-   */
-  private parseYtDlpOutput(output: string): ResolvedStream {
-    const lines = output.trim().split('\n');
-    
-    if (lines.length < 4) {
-      throw new Error('Incomplete yt-dlp output');
-    }
-
-    const [streamUrl, title, durationStr, format] = lines;
-
-    // Parse duration (can be in various formats)
-    const duration = this.parseDuration(durationStr);
-
-    // Extract quality from format string
-    const quality = this.extractQuality(format);
-
-    return {
-      streamUrl: streamUrl.trim(),
-      title: title.trim(),
-      duration,
-      format: format.trim(),
-      quality
-    };
-  }
-
-  /**
-   * Parse duration string to seconds
-   * Requirements: 1.3
-   */
-  private parseDuration(durationStr: string): number {
-    const duration = parseInt(durationStr, 10);
-    return isNaN(duration) ? 0 : duration;
-  }
-
-  /**
-   * Extract quality information from format string
-   * Requirements: 1.3
-   */
-  private extractQuality(format: string): string {
-    // Extract quality from format string (e.g., "251 - audio only (opus)")
-    const match = format.match(/(\d+)\s*-\s*audio only/);
-    return match ? `${match[1]}kbps` : 'unknown';
   }
 
   /**
