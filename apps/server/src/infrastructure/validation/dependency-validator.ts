@@ -5,7 +5,7 @@
 
 import which from 'which';
 import { Result } from '@party-jukebox/shared';
-import { ProcessError, PlaybackErrorFactory } from '../../domain/playback';
+import { ProcessError } from '../../domain/playback';
 
 /**
  * Required external dependencies for the playback system
