@@ -19,10 +19,13 @@ import {
 import { QueueManager } from '../../../../application/QueueManager';
 import { QueueService, IQueueService } from '../../../../application/QueueService';
 import { RateLimiter } from '../../../../application/RateLimiter';
+import { IPlaybackOrchestrator } from '../../../../domain/playback/interfaces';
+import { PlaybackState } from '../../../../domain/playback/types';
 
 describe('Queue API Integration', () => {
   let fastify: FastifyInstance;
   let queueService: QueueService;
+  let mockPlaybackOrchestrator: IPlaybackOrchestrator;
   let dependencies: HTTPServerDependencies;
 
   beforeEach(async () => {
@@ -31,8 +34,28 @@ describe('Queue API Integration', () => {
     const rateLimiter = new RateLimiter();
     queueService = new QueueService(queueManager, rateLimiter);
     
+    // Create mock PlaybackOrchestrator
+    mockPlaybackOrchestrator = {
+      start: jest.fn().mockResolvedValue({ success: true, value: undefined }),
+      stop: jest.fn().mockResolvedValue({ success: true, value: undefined }),
+      pause: jest.fn().mockResolvedValue({ success: true, value: undefined }),
+      resume: jest.fn().mockResolvedValue({ success: true, value: undefined }),
+      skip: jest.fn().mockResolvedValue({ success: true, value: undefined }),
+      setVolume: jest.fn().mockResolvedValue({ success: true, value: undefined }),
+      getCurrentState: jest.fn().mockReturnValue({
+        status: 'idle',
+        currentTrack: null,
+        position: 0,
+        duration: 0,
+        volume: 50,
+      } as PlaybackState),
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    };
+    
     dependencies = {
       queueService,
+      playbackOrchestrator: mockPlaybackOrchestrator,
     };
 
     fastify = Fastify({ logger: false });
@@ -330,6 +353,7 @@ describe('Queue API Integration', () => {
 
       const errorDependencies = {
         queueService: errorQueueService,
+        playbackOrchestrator: mockPlaybackOrchestrator,
       };
 
       const errorFastify = Fastify({ logger: false });

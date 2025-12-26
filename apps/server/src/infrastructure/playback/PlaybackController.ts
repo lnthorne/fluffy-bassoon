@@ -32,6 +32,7 @@ export class PlaybackController extends EventEmitter implements IPlaybackControl
   private positionUpdateInterval: NodeJS.Timeout | null = null;
   private healthCheckInterval: NodeJS.Timeout | null = null;
   private readonly socketPath = '/tmp/mpv-socket';
+  private currentTrackId: string | null = null; // Add track ID to prevent stale end events
 
   // Configuration for MPV process
   // Requirements: 2.1, 2.2, 2.8
@@ -105,8 +106,14 @@ export class PlaybackController extends EventEmitter implements IPlaybackControl
 
       // Update state
       this.currentStreamUrl = streamUrl;
-      this.isCurrentlyPlaying = true;
       this.currentPosition = 0;
+      this.currentTrackId = Date.now().toString(); // Generate unique ID for this track
+      
+      // Wait a small moment to ensure any pending end-file events from previous tracks are processed
+      // before setting isCurrentlyPlaying = true
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      this.isCurrentlyPlaying = true;
 
       // Start position tracking
       // Requirements: 2.6, 4.4
@@ -261,6 +268,7 @@ export class PlaybackController extends EventEmitter implements IPlaybackControl
       this.currentStreamUrl = null;
       this.currentPosition = 0;
       this.currentDuration = 0;
+      this.currentTrackId = null;
       this.stopPositionTracking();
 
       // Emit state change event
@@ -765,6 +773,19 @@ export class PlaybackController extends EventEmitter implements IPlaybackControl
    * Requirements: 2.4, 2.5
    */
   private handleTrackEnd(): void {
+    // Prevent multiple track_finished events for the same track
+    if (!this.isCurrentlyPlaying) {
+      console.log('Track already ended, ignoring duplicate end event');
+      return;
+    }
+
+    // Additional safety: only process end events if we have a current stream
+    // This prevents stale end events from affecting new tracks during skip operations
+    if (!this.currentStreamUrl) {
+      console.log('No current stream, ignoring end event (likely from previous track)');
+      return;
+    }
+
     console.log('Track ended, emitting track_finished event');
     
     // Update internal state

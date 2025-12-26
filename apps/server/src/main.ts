@@ -91,6 +91,7 @@ async function initializeServer(): Promise<void> {
     
     const httpDependencies: HTTPServerDependencies = {
       queueService,
+      playbackOrchestrator,
     };
     
     httpServer = new HTTPServer(httpConfig);

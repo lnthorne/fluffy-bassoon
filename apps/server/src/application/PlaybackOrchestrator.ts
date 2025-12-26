@@ -219,24 +219,55 @@ export class PlaybackOrchestrator extends EventEmitter implements IPlaybackOrche
     try {
       console.log('Skipping to next track...');
 
-      // Stop current playback
-      await this.playbackController.stop();
-
-      // Advance queue
-      const advanceResult = this.queueService.advanceToNextTrack();
-      if (!advanceResult.success) {
-        console.log('No more tracks in queue');
-        this.handleEmptyQueue();
+      // Prevent concurrent skip operations
+      if (this.isProcessingTrack) {
+        console.log('Skip already in progress, ignoring duplicate request');
         return { success: true, value: undefined };
       }
 
-      // Start playing next track
-      await this.checkAndStartPlayback();
+      // Set processing flag to prevent queue monitoring and handleTrackFinished from interfering
+      this.isProcessingTrack = true;
 
-      return { success: true, value: undefined };
+      try {
+        // First, advance the queue to get the next track BEFORE stopping current playback
+        // This prevents the race condition where stop() triggers end-file -> handleTrackFinished -> advanceToNextTrack
+        const advanceResult = this.queueService.advanceToNextTrack();
+        
+        if (!advanceResult.success || !advanceResult.value) {
+          console.log('No more tracks in queue');
+          // Stop current playback since there's nothing to play next
+          await this.playbackController.stop();
+          this.handleEmptyQueue();
+          this.isProcessingTrack = false;
+          return { success: true, value: undefined };
+        }
+
+        const nextTrack = advanceResult.value;
+        console.log(`Next track to play: ${nextTrack.track.title}`);
+
+        // Now stop current playback (this may trigger end-file events, but we ignore them due to isProcessingTrack)
+        await this.playbackController.stop();
+
+        // Start playing the next track
+        await this.startPlayingTrack(nextTrack, true); // Allow during processing
+
+        // Keep processing flag true for a bit longer to ensure any delayed end-file events 
+        // from the stop operation are ignored by handleTrackFinished
+        setTimeout(() => {
+          this.isProcessingTrack = false;
+        }, 1000); // Wait 1 second before allowing handleTrackFinished to process events
+
+        return { success: true, value: undefined };
+
+      } catch (error) {
+        // Reset processing flag on error
+        this.isProcessingTrack = false;
+        throw error;
+      }
 
     } catch (error) {
       console.error('Failed to skip track:', error);
+      this.isProcessingTrack = false;
       return { 
         success: false, 
         error: 'PROCESS_CRASHED'
@@ -387,14 +418,11 @@ export class PlaybackOrchestrator extends EventEmitter implements IPlaybackOrche
       if (queueState.currentTrack && queueState.currentTrack !== this.currentTrack) {
         await this.startPlayingTrack(queueState.currentTrack);
       }
-      // If we don't have a current track but queue has tracks, something's wrong
-      else if (!queueState.currentTrack && !queueState.isEmpty) {
-        console.warn('Queue has tracks but no current track, advancing queue');
-        const advanceResult = this.queueService.advanceToNextTrack();
-        if (advanceResult.success && advanceResult.value) {
-          await this.startPlayingTrack(advanceResult.value);
-        }
-      }
+      // REMOVED: Auto-advance logic that was causing double-advancement
+      // The queue monitoring should only start existing tracks, not advance the queue
+      // Queue advancement should only happen through explicit operations (skip, track finished)
+      // If there's no current track but queue has tracks, we should NOT auto-advance
+      // This prevents the race condition where skip + monitoring both advance the queue
 
     } catch (error) {
       console.error('Error checking and starting playback:', error);
@@ -406,12 +434,21 @@ export class PlaybackOrchestrator extends EventEmitter implements IPlaybackOrche
    * Start playing a specific track
    * Requirements: 3.1, 1.1, 2.1
    */
-  private async startPlayingTrack(track: QueueItem): Promise<void> {
-    if (this.isProcessingTrack || !this.isRunning) {
+  private async startPlayingTrack(track: QueueItem, allowDuringProcessing = false): Promise<void> {
+    if (!allowDuringProcessing && (this.isProcessingTrack || !this.isRunning)) {
       return;
     }
 
-    this.isProcessingTrack = true;
+    if (!this.isRunning) {
+      return;
+    }
+
+    // Only set processing flag if not already set (e.g., during skip operations)
+    const wasProcessing = this.isProcessingTrack;
+    if (!wasProcessing) {
+      this.isProcessingTrack = true;
+    }
+    
     this.currentTrack = track;
 
     try {
@@ -479,7 +516,10 @@ export class PlaybackOrchestrator extends EventEmitter implements IPlaybackOrche
       }
       await this.handleTrackPlaybackFailure('PROCESS_CRASHED');
     } finally {
-      this.isProcessingTrack = false;
+      // Only reset processing flag if we set it (not during skip operations)
+      if (!wasProcessing) {
+        this.isProcessingTrack = false;
+      }
     }
   }
 
@@ -489,6 +529,12 @@ export class PlaybackOrchestrator extends EventEmitter implements IPlaybackOrche
    */
   private async handleTrackFinished(): Promise<void> {
     try {
+      // Don't auto-advance if we're in the middle of processing a track (e.g., during skip)
+      if (this.isProcessingTrack) {
+        console.log('Track finished during track processing (skip), ignoring auto-advance');
+        return;
+      }
+
       console.log('Track finished, advancing to next track');
 
       // Advance queue to next track

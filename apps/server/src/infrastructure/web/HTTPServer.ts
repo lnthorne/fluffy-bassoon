@@ -12,6 +12,7 @@ import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import { registerAPIRoutes } from './api';
 import { IQueueService } from '../../application/QueueService';
+import { IPlaybackOrchestrator } from '../../domain/playback/interfaces';
 
 export interface ServerInfo {
   port: number;
@@ -28,6 +29,7 @@ export interface HTTPServerConfig {
 
 export interface HTTPServerDependencies {
   queueService: IQueueService;
+  playbackOrchestrator: IPlaybackOrchestrator;
 }
 
 export class HTTPServer {

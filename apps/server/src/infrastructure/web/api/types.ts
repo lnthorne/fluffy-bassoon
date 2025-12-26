@@ -155,3 +155,49 @@ export interface AddTrackRouteInterface extends RouteGenericInterface {
 export interface QueueStateRouteInterface extends RouteGenericInterface {
   Reply: QueueStateResponse;
 }
+
+/**
+ * Playback API Request/Response Types
+ * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7
+ */
+
+// Playback status response
+export interface PlaybackStatusResponse {
+  success: boolean;
+  data?: {
+    status: 'idle' | 'resolving' | 'playing' | 'paused' | 'error';
+    currentTrack: QueueItem | null;
+    position: number; // seconds
+    duration: number; // seconds
+    volume: number; // 0-100
+    error?: string;
+  };
+  error?: APIError;
+  timestamp: string;
+}
+
+// Playback action response (skip, pause, resume)
+export interface PlaybackActionResponse {
+  success: boolean;
+  data?: {
+    action: string;
+    newStatus: {
+      status: 'idle' | 'resolving' | 'playing' | 'paused' | 'error';
+      currentTrack: QueueItem | null;
+      position: number;
+      duration: number;
+      volume: number;
+    };
+  };
+  error?: APIError;
+  timestamp: string;
+}
+
+// Playback API route interfaces for Fastify typing
+export interface PlaybackStatusRouteInterface extends RouteGenericInterface {
+  Reply: PlaybackStatusResponse;
+}
+
+export interface PlaybackActionRouteInterface extends RouteGenericInterface {
+  Reply: PlaybackActionResponse;
+}

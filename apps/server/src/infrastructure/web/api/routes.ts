@@ -16,8 +16,12 @@ import {
   AddTrackRequest,
   AddTrackResponse,
   QueueStateResponse,
+  PlaybackStatusResponse,
+  PlaybackActionResponse,
   AddTrackRouteInterface,
-  QueueStateRouteInterface
+  QueueStateRouteInterface,
+  PlaybackStatusRouteInterface,
+  PlaybackActionRouteInterface
 } from './types';
 import { registerAPIMiddleware } from './middleware';
 import { HTTPServerDependencies } from '../HTTPServer';
@@ -80,10 +84,33 @@ export async function registerAPIRoutes(
     apiInstance.get('/search', createPlaceholderHandler('YouTube search'));
     
     // Playback control (Task 6)
-    apiInstance.get('/playback/status', createPlaceholderHandler('Playback status'));
-    apiInstance.post('/playback/skip', createPlaceholderHandler('Skip track'));
-    apiInstance.post('/playback/pause', createPlaceholderHandler('Pause playback'));
-    apiInstance.post('/playback/resume', createPlaceholderHandler('Resume playback'));
+    if (dependencies?.playbackOrchestrator) {
+      // GET /api/playback/status - Get current playback state
+      apiInstance.get<PlaybackStatusRouteInterface>('/playback/status', async (request, reply) => {
+        return handleGetPlaybackStatus(request, reply, dependencies.playbackOrchestrator);
+      });
+      
+      // POST /api/playback/skip - Skip to next track
+      apiInstance.post<PlaybackActionRouteInterface>('/playback/skip', async (request, reply) => {
+        return handleSkipTrack(request, reply, dependencies.playbackOrchestrator);
+      });
+      
+      // POST /api/playback/pause - Pause current playback
+      apiInstance.post<PlaybackActionRouteInterface>('/playback/pause', async (request, reply) => {
+        return handlePausePlayback(request, reply, dependencies.playbackOrchestrator);
+      });
+      
+      // POST /api/playback/resume - Resume paused playback
+      apiInstance.post<PlaybackActionRouteInterface>('/playback/resume', async (request, reply) => {
+        return handleResumePlayback(request, reply, dependencies.playbackOrchestrator);
+      });
+    } else {
+      // Fallback handlers when playback orchestrator is not available
+      apiInstance.get('/playback/status', createServiceUnavailableHandler('Playback status'));
+      apiInstance.post('/playback/skip', createServiceUnavailableHandler('Skip track'));
+      apiInstance.post('/playback/pause', createServiceUnavailableHandler('Pause playback'));
+      apiInstance.post('/playback/resume', createServiceUnavailableHandler('Resume playback'));
+    }
     
   }, { prefix: '/api' });
 }
@@ -323,6 +350,312 @@ async function handleAddTrackToQueue(
     };
     
     const response: AddTrackResponse = {
+      success: false,
+      error: apiError,
+      timestamp: new Date().toISOString(),
+    };
+    
+    reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR).send(response);
+  }
+}
+
+/**
+ * Handle GET /api/playback/status - Get current playback state
+ * Requirements: 4.4, 4.6
+ */
+async function handleGetPlaybackStatus(
+  request: FastifyRequest<PlaybackStatusRouteInterface>,
+  reply: FastifyReply,
+  playbackOrchestrator: any
+): Promise<void> {
+  try {
+    const playbackState = playbackOrchestrator.getCurrentState();
+    
+    const response: PlaybackStatusResponse = {
+      success: true,
+      data: {
+        status: playbackState.status,
+        currentTrack: playbackState.currentTrack,
+        position: playbackState.position,
+        duration: playbackState.duration,
+        volume: playbackState.volume,
+        error: playbackState.error,
+      },
+      timestamp: new Date().toISOString(),
+    };
+    
+    reply.code(HTTP_STATUS.OK).send(response);
+  } catch (error) {
+    console.error('Error getting playback status:', error);
+    
+    const apiError: APIError = {
+      code: API_ERROR_CODES.INTERNAL_ERROR,
+      message: 'Failed to retrieve playback status',
+      timestamp: new Date().toISOString(),
+    };
+    
+    const response: PlaybackStatusResponse = {
+      success: false,
+      error: apiError,
+      timestamp: new Date().toISOString(),
+    };
+    
+    reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR).send(response);
+  }
+}
+
+/**
+ * Handle POST /api/playback/skip - Skip to next track
+ * Requirements: 4.1
+ */
+async function handleSkipTrack(
+  request: FastifyRequest<PlaybackActionRouteInterface>,
+  reply: FastifyReply,
+  playbackOrchestrator: any
+): Promise<void> {
+  try {
+    const skipResult = await playbackOrchestrator.skip();
+    
+    if (!skipResult.success) {
+      const error: APIError = {
+        code: API_ERROR_CODES.INTERNAL_ERROR,
+        message: 'Failed to skip track',
+        details: { 
+          orchestrationError: skipResult.error 
+        },
+        timestamp: new Date().toISOString(),
+      };
+      
+      const response: PlaybackActionResponse = {
+        success: false,
+        error,
+        timestamp: new Date().toISOString(),
+      };
+      
+      reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR).send(response);
+      return;
+    }
+    
+    // Get updated state after skip
+    const newState = playbackOrchestrator.getCurrentState();
+    
+    const response: PlaybackActionResponse = {
+      success: true,
+      data: {
+        action: 'skip',
+        newStatus: {
+          status: newState.status,
+          currentTrack: newState.currentTrack,
+          position: newState.position,
+          duration: newState.duration,
+          volume: newState.volume,
+        },
+      },
+      timestamp: new Date().toISOString(),
+    };
+    
+    reply.code(HTTP_STATUS.OK).send(response);
+    
+  } catch (error) {
+    console.error('Error skipping track:', error);
+    
+    const apiError: APIError = {
+      code: API_ERROR_CODES.INTERNAL_ERROR,
+      message: 'Internal server error while skipping track',
+      timestamp: new Date().toISOString(),
+    };
+    
+    const response: PlaybackActionResponse = {
+      success: false,
+      error: apiError,
+      timestamp: new Date().toISOString(),
+    };
+    
+    reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR).send(response);
+  }
+}
+
+/**
+ * Handle POST /api/playback/pause - Pause current playback
+ * Requirements: 4.2, 4.5
+ */
+async function handlePausePlayback(
+  request: FastifyRequest<PlaybackActionRouteInterface>,
+  reply: FastifyReply,
+  playbackOrchestrator: any
+): Promise<void> {
+  try {
+    const currentState = playbackOrchestrator.getCurrentState();
+    
+    // Validate that pause operation is appropriate for current state
+    if (currentState.status !== 'playing') {
+      const error: APIError = {
+        code: API_ERROR_CODES.INVALID_REQUEST,
+        message: 'Cannot pause when not playing',
+        details: { 
+          currentStatus: currentState.status,
+          validStates: ['playing']
+        },
+        timestamp: new Date().toISOString(),
+      };
+      
+      const response: PlaybackActionResponse = {
+        success: false,
+        error,
+        timestamp: new Date().toISOString(),
+      };
+      
+      reply.code(HTTP_STATUS.BAD_REQUEST).send(response);
+      return;
+    }
+    
+    const pauseResult = await playbackOrchestrator.pause();
+    
+    if (!pauseResult.success) {
+      const error: APIError = {
+        code: API_ERROR_CODES.INTERNAL_ERROR,
+        message: 'Failed to pause playback',
+        details: { 
+          orchestrationError: pauseResult.error 
+        },
+        timestamp: new Date().toISOString(),
+      };
+      
+      const response: PlaybackActionResponse = {
+        success: false,
+        error,
+        timestamp: new Date().toISOString(),
+      };
+      
+      reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR).send(response);
+      return;
+    }
+    
+    // Get updated state after pause
+    const newState = playbackOrchestrator.getCurrentState();
+    
+    const response: PlaybackActionResponse = {
+      success: true,
+      data: {
+        action: 'pause',
+        newStatus: {
+          status: newState.status,
+          currentTrack: newState.currentTrack,
+          position: newState.position,
+          duration: newState.duration,
+          volume: newState.volume,
+        },
+      },
+      timestamp: new Date().toISOString(),
+    };
+    
+    reply.code(HTTP_STATUS.OK).send(response);
+    
+  } catch (error) {
+    console.error('Error pausing playback:', error);
+    
+    const apiError: APIError = {
+      code: API_ERROR_CODES.INTERNAL_ERROR,
+      message: 'Internal server error while pausing playback',
+      timestamp: new Date().toISOString(),
+    };
+    
+    const response: PlaybackActionResponse = {
+      success: false,
+      error: apiError,
+      timestamp: new Date().toISOString(),
+    };
+    
+    reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR).send(response);
+  }
+}
+
+/**
+ * Handle POST /api/playback/resume - Resume paused playback
+ * Requirements: 4.3, 4.5
+ */
+async function handleResumePlayback(
+  request: FastifyRequest<PlaybackActionRouteInterface>,
+  reply: FastifyReply,
+  playbackOrchestrator: any
+): Promise<void> {
+  try {
+    const currentState = playbackOrchestrator.getCurrentState();
+    
+    // Validate that resume operation is appropriate for current state
+    if (currentState.status !== 'paused') {
+      const error: APIError = {
+        code: API_ERROR_CODES.INVALID_REQUEST,
+        message: 'Cannot resume when not paused',
+        details: { 
+          currentStatus: currentState.status,
+          validStates: ['paused']
+        },
+        timestamp: new Date().toISOString(),
+      };
+      
+      const response: PlaybackActionResponse = {
+        success: false,
+        error,
+        timestamp: new Date().toISOString(),
+      };
+      
+      reply.code(HTTP_STATUS.BAD_REQUEST).send(response);
+      return;
+    }
+    
+    const resumeResult = await playbackOrchestrator.resume();
+    
+    if (!resumeResult.success) {
+      const error: APIError = {
+        code: API_ERROR_CODES.INTERNAL_ERROR,
+        message: 'Failed to resume playback',
+        details: { 
+          orchestrationError: resumeResult.error 
+        },
+        timestamp: new Date().toISOString(),
+      };
+      
+      const response: PlaybackActionResponse = {
+        success: false,
+        error,
+        timestamp: new Date().toISOString(),
+      };
+      
+      reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR).send(response);
+      return;
+    }
+    
+    // Get updated state after resume
+    const newState = playbackOrchestrator.getCurrentState();
+    
+    const response: PlaybackActionResponse = {
+      success: true,
+      data: {
+        action: 'resume',
+        newStatus: {
+          status: newState.status,
+          currentTrack: newState.currentTrack,
+          position: newState.position,
+          duration: newState.duration,
+          volume: newState.volume,
+        },
+      },
+      timestamp: new Date().toISOString(),
+    };
+    
+    reply.code(HTTP_STATUS.OK).send(response);
+    
+  } catch (error) {
+    console.error('Error resuming playback:', error);
+    
+    const apiError: APIError = {
+      code: API_ERROR_CODES.INTERNAL_ERROR,
+      message: 'Internal server error while resuming playback',
+      timestamp: new Date().toISOString(),
+    };
+    
+    const response: PlaybackActionResponse = {
       success: false,
       error: apiError,
       timestamp: new Date().toISOString(),
