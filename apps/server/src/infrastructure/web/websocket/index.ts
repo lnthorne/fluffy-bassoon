@@ -11,6 +11,10 @@
 export { WebSocketServer } from './WebSocketServer';
 export type { WebSocketServerConfig, WebSocketServerDependencies } from './WebSocketServer';
 
+// Event broadcasting
+export { EventBroadcaster } from './EventBroadcaster';
+export type { EventBroadcasterConfig, EventBroadcasterDependencies } from './EventBroadcaster';
+
 // Client management
 export { ClientManager } from './ClientManager';
 

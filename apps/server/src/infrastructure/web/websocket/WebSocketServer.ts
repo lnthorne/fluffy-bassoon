@@ -11,6 +11,7 @@ import { FastifyInstance, FastifyRequest } from 'fastify';
 import { WebSocketConnection, WebSocketEvent, ClientType } from './types';
 import { ClientManager } from './ClientManager';
 import { MessageHandler } from './MessageHandler';
+import { EventBroadcaster } from './EventBroadcaster';
 
 export interface WebSocketServerConfig {
   heartbeatInterval: number; // milliseconds
@@ -19,7 +20,8 @@ export interface WebSocketServerConfig {
 }
 
 export interface WebSocketServerDependencies {
-  // Future: EventBroadcaster will be added here
+  eventBroadcaster?: EventBroadcaster;
+  clientManager?: ClientManager;
 }
 
 export class WebSocketServer {
@@ -29,10 +31,11 @@ export class WebSocketServer {
   private config: WebSocketServerConfig;
   private dependencies: WebSocketServerDependencies | null = null;
   private heartbeatTimer: NodeJS.Timeout | null = null;
+  private eventBroadcaster: EventBroadcaster | null = null;
 
-  constructor(config: WebSocketServerConfig) {
+  constructor(config: WebSocketServerConfig, clientManager?: ClientManager) {
     this.config = config;
-    this.clientManager = new ClientManager();
+    this.clientManager = clientManager || new ClientManager();
     this.messageHandler = new MessageHandler();
   }
 
@@ -47,6 +50,12 @@ export class WebSocketServer {
     try {
       this.fastify = fastify;
       this.dependencies = dependencies || null;
+      this.eventBroadcaster = dependencies?.eventBroadcaster || null;
+
+      // Use provided ClientManager if available
+      if (dependencies?.clientManager) {
+        this.clientManager = dependencies.clientManager;
+      }
 
       // Register WebSocket route at /ws
       await this.fastify.register(async (fastifyInstance) => {
@@ -60,6 +69,7 @@ export class WebSocketServer {
       console.log(`   - Max connections: ${this.config.maxConnections}`);
       console.log(`   - Heartbeat interval: ${this.config.heartbeatInterval}ms`);
       console.log(`   - Connection timeout: ${this.config.connectionTimeout}ms`);
+      console.log(`   - EventBroadcaster: ${this.eventBroadcaster ? 'enabled' : 'disabled'}`);
     } catch (error) {
       console.error('Failed to initialize WebSocket server:', error);
       throw error;
@@ -111,6 +121,14 @@ export class WebSocketServer {
 
       // Send initial connection acknowledgment
       await this.sendConnectionAcknowledgment(wsConnection);
+
+      // Send initial state if EventBroadcaster is available
+      if (this.eventBroadcaster) {
+        console.log(`🔥 WebSocket: Sending initial state to client ${wsConnection.id}`);
+        await this.eventBroadcaster.sendInitialState(wsConnection.id);
+      } else {
+        console.log(`⚠️  WebSocket: No EventBroadcaster available for initial state to client ${wsConnection.id}`);
+      }
 
     } catch (error) {
       console.error('Error handling WebSocket connection:', error);

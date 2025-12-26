@@ -11,7 +11,15 @@ import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import { registerAPIRoutes } from './api';
-import { WebSocketServer, WebSocketServerConfig } from './websocket';
+import { 
+  WebSocketServer, 
+  WebSocketServerConfig, 
+  WebSocketServerDependencies,
+  EventBroadcaster,
+  EventBroadcasterConfig,
+  EventBroadcasterDependencies,
+  ClientManager
+} from './websocket';
 import { IQueueService } from '../../application/QueueService';
 import { IPlaybackOrchestrator } from '../../domain/playback/interfaces';
 
@@ -31,6 +39,7 @@ export interface HTTPServerConfig {
 export interface HTTPServerDependencies {
   queueService: IQueueService;
   playbackOrchestrator: IPlaybackOrchestrator;
+  eventBroadcaster?: EventBroadcaster;
 }
 
 export class HTTPServer {
@@ -39,6 +48,8 @@ export class HTTPServer {
   private dependencies: HTTPServerDependencies | null = null;
   private startTime: Date | null = null;
   private webSocketServer: WebSocketServer | null = null;
+  private eventBroadcaster: EventBroadcaster | null = null;
+  private clientManager: ClientManager | null = null;
 
   constructor(config: HTTPServerConfig) {
     this.config = config;
@@ -78,15 +89,49 @@ export class HTTPServer {
         },
       });
 
-      // Initialize WebSocket server
+      // Initialize WebSocket server and EventBroadcaster
       const wsConfig: WebSocketServerConfig = {
         heartbeatInterval: 30000, // 30 seconds
         connectionTimeout: 60000, // 60 seconds
         maxConnections: 50, // As per requirements
       };
 
-      this.webSocketServer = new WebSocketServer(wsConfig);
-      await this.webSocketServer.initialize(this.fastify);
+      // Create ClientManager
+      this.clientManager = new ClientManager();
+
+      // Create EventBroadcaster if we have dependencies
+      if (this.dependencies) {
+        const eventBroadcasterConfig: EventBroadcasterConfig = {
+          heartbeatInterval: 30000, // 30 seconds
+          maxBroadcastTime: 100, // 100ms as per requirements
+          enableEventMetadata: true,
+        };
+
+        const eventBroadcasterDependencies: EventBroadcasterDependencies = {
+          queueService: this.dependencies.queueService,
+          playbackOrchestrator: this.dependencies.playbackOrchestrator,
+          clientManager: this.clientManager,
+        };
+
+        this.eventBroadcaster = new EventBroadcaster(
+          eventBroadcasterConfig,
+          eventBroadcasterDependencies
+        );
+
+        // Initialize EventBroadcaster to subscribe to system events
+        this.eventBroadcaster.initialize();
+        console.log('✅ EventBroadcaster initialized and subscribed to system events');
+      }
+
+      // Create WebSocket server with shared ClientManager and EventBroadcaster
+      this.webSocketServer = new WebSocketServer(wsConfig, this.clientManager);
+      
+      const wsServerDependencies: WebSocketServerDependencies = {
+        eventBroadcaster: this.eventBroadcaster || undefined,
+        clientManager: this.clientManager,
+      };
+      
+      await this.webSocketServer.initialize(this.fastify, wsServerDependencies);
 
       // Register routes and middleware
       this.registerMiddleware();
@@ -116,6 +161,12 @@ export class HTTPServer {
       console.log(`   - Accessible via: http://jukebox.local:${this.config.port}`);
       console.log(`   - WebSocket endpoint: ws://jukebox.local:${this.config.port}/ws`);
       console.log(`   - CORS enabled for local network access`);
+      console.log(`   - EventBroadcaster: ${this.eventBroadcaster ? 'active' : 'disabled'}`);
+      
+      if (this.eventBroadcaster) {
+        const stats = this.eventBroadcaster.getBroadcastStats();
+        console.log(`   - Real-time events: ${stats.isInitialized ? 'enabled' : 'disabled'}`);
+      }
     } catch (error) {
       console.error('Failed to start HTTP server:', error);
       throw error;
@@ -127,9 +178,22 @@ export class HTTPServer {
    */
   async stop(): Promise<void> {
     try {
-      // Shutdown WebSocket server first
+      // Shutdown EventBroadcaster first
+      if (this.eventBroadcaster) {
+        await this.eventBroadcaster.shutdown();
+        this.eventBroadcaster = null;
+      }
+
+      // Shutdown WebSocket server
       if (this.webSocketServer) {
         await this.webSocketServer.shutdown();
+        this.webSocketServer = null;
+      }
+
+      // Clear ClientManager
+      if (this.clientManager) {
+        this.clientManager.clear();
+        this.clientManager = null;
       }
 
       await this.fastify.close();
@@ -172,6 +236,22 @@ export class HTTPServer {
   }
 
   /**
+   * Get the EventBroadcaster instance
+   * Requirements: 5.2, 5.3
+   */
+  getEventBroadcaster(): EventBroadcaster | null {
+    return this.eventBroadcaster;
+  }
+
+  /**
+   * Get the ClientManager instance
+   * Requirements: 6.3
+   */
+  getClientManager(): ClientManager | null {
+    return this.clientManager;
+  }
+
+  /**
    * Register middleware for security and request handling
    */
   private registerMiddleware(): void {
@@ -198,8 +278,14 @@ export class HTTPServer {
    * Requirements: 1.1, 1.2, 1.3, 1.5, 8.2, 8.3, 8.4, 8.7, 2.6, 2.7
    */
   private async registerRoutes(): Promise<void> {
-    // Register API routes with /api prefix and pass dependencies
-    await registerAPIRoutes(this.fastify, this.dependencies);
+    // Create enhanced dependencies that include EventBroadcaster
+    const enhancedDependencies = this.dependencies ? {
+      ...this.dependencies,
+      eventBroadcaster: this.eventBroadcaster || undefined,
+    } : null;
+
+    // Register API routes with /api prefix and pass enhanced dependencies
+    await registerAPIRoutes(this.fastify, enhancedDependencies);
     
     // Health check endpoint
     this.fastify.get('/health', async (request: FastifyRequest, reply: FastifyReply) => {

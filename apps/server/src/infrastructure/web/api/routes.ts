@@ -69,7 +69,7 @@ export async function registerAPIRoutes(
       
       // POST /api/queue/add - Add track to queue
       apiInstance.post<AddTrackRouteInterface>('/queue/add', async (request, reply) => {
-        return handleAddTrackToQueue(request, reply, dependencies.queueService);
+        return handleAddTrackToQueue(request, reply, dependencies.queueService, dependencies.eventBroadcaster);
       });
     } else {
       // Fallback handlers when services are not available
@@ -213,7 +213,8 @@ async function handleGetQueueState(
 async function handleAddTrackToQueue(
   request: FastifyRequest<AddTrackRouteInterface>,
   reply: FastifyReply,
-  queueService: any
+  queueService: any,
+  eventBroadcaster?: any
 ): Promise<void> {
   try {
     const { track: trackData, user: userData } = request.body;
@@ -328,6 +329,25 @@ async function handleAddTrackToQueue(
     // Success - get queue position
     const queueState = queueService.getQueueState();
     const queuePosition = queueState.totalLength; // Position is the total length since we just added
+    
+    // Trigger EventBroadcaster events if available
+    if (eventBroadcaster) {
+      console.log('🔥 API: EventBroadcaster available, triggering events...');
+      try {
+        // Broadcast track added event
+        await eventBroadcaster.broadcastTrackAdded(addResult.value, queuePosition);
+        
+        // Broadcast updated queue state
+        await eventBroadcaster.broadcastQueueUpdate(queueState);
+        
+        console.log('✅ API: EventBroadcaster events triggered successfully');
+      } catch (broadcastError) {
+        // Log broadcast errors but don't fail the API request
+        console.error('❌ API: Error broadcasting track added event:', broadcastError);
+      }
+    } else {
+      console.log('⚠️  API: EventBroadcaster not available - no real-time events will be sent');
+    }
     
     const response: AddTrackResponse = {
       success: true,

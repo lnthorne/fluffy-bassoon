@@ -319,10 +319,21 @@ export class PlaybackOrchestrator extends EventEmitter implements IPlaybackOrche
    * Requirements: 4.1, 4.2, 4.3, 4.6
    */
   getCurrentState(): PlaybackState {
-    return {
+    // Ensure currentTrack is always synchronized
+    const state = {
       ...this.currentState,
       currentTrack: this.currentTrack
     };
+    
+    // Debug logging to track state synchronization
+    if (this.isRunning) {
+      console.log('🔍 PlaybackOrchestrator getCurrentState():');
+      console.log('   - this.currentTrack:', this.currentTrack?.track?.title || 'null');
+      console.log('   - this.currentState.currentTrack:', this.currentState.currentTrack?.track?.title || 'null');
+      console.log('   - returned state.currentTrack:', state.currentTrack?.track?.title || 'null');
+    }
+    
+    return state;
   }
 
   /**
@@ -460,7 +471,7 @@ export class PlaybackOrchestrator extends EventEmitter implements IPlaybackOrche
       this.currentState = {
         ...this.currentState,
         status: 'resolving',
-        currentTrack: track,
+        currentTrack: track, // Keep currentState in sync
         position: 0,
         duration: 0
       };
@@ -485,7 +496,8 @@ export class PlaybackOrchestrator extends EventEmitter implements IPlaybackOrche
       // Update duration from resolved stream
       this.currentState = {
         ...this.currentState,
-        duration: resolvedStream.duration
+        duration: resolvedStream.duration,
+        currentTrack: track // Keep currentState in sync
       };
 
       // Start playback
@@ -502,7 +514,8 @@ export class PlaybackOrchestrator extends EventEmitter implements IPlaybackOrche
       // Update state to playing
       this.currentState = {
         ...this.currentState,
-        status: 'playing'
+        status: 'playing',
+        currentTrack: track // Keep currentState in sync
       };
       this.emitStateChange();
 
@@ -631,20 +644,24 @@ export class PlaybackOrchestrator extends EventEmitter implements IPlaybackOrche
    * Requirements: 3.4
    */
   private handleEmptyQueue(): void {
-    if (this.isRunning) {
-      console.log('Queue is empty, stopping playback');
+    // Only update state if it's not already idle
+    if (this.currentState.status !== 'idle' || this.currentTrack !== null) {
+      if (this.isRunning) {
+        console.log('Queue is empty, stopping playback');
+      }
+
+      this.currentTrack = null;
+      this.currentState = {
+        status: 'idle',
+        currentTrack: null,
+        position: 0,
+        duration: 0,
+        volume: this.currentState.volume
+      };
+
+      this.emitStateChange();
     }
-
-    this.currentTrack = null;
-    this.currentState = {
-      status: 'idle',
-      currentTrack: null,
-      position: 0,
-      duration: 0,
-      volume: this.currentState.volume
-    };
-
-    this.emitStateChange();
+    // If already idle with no track, don't emit unnecessary events
   }
 
   /**
@@ -653,14 +670,55 @@ export class PlaybackOrchestrator extends EventEmitter implements IPlaybackOrche
    */
   private handlePlaybackStateUpdate(event: PlaybackEvent): void {
     if (event.data.state) {
-      // Update our state with controller state, but keep our track info
-      this.currentState = {
+      // Debug logging to track state updates
+      if (this.isRunning) {
+        console.log('🔄 PlaybackOrchestrator handlePlaybackStateUpdate:');
+        console.log('   - Event type:', event.type);
+        console.log('   - Controller state currentTrack:', event.data.state.currentTrack?.track?.title || 'null');
+        console.log('   - Our currentTrack:', this.currentTrack?.track?.title || 'null');
+        console.log('   - Controller state status:', event.data.state.status);
+      }
+
+      // IMPORTANT: Don't overwrite our currentTrack with controller's currentTrack
+      // The controller might not have track information, but we do
+      const updatedState = {
         ...event.data.state,
-        currentTrack: this.currentTrack
+        currentTrack: this.currentTrack // Always use our tracked currentTrack
       };
-      
-      // Forward the event to our listeners
-      this.emitEvent(event);
+
+      // Only update our state if something meaningful changed
+      const hasChanged = (
+        this.currentState.status !== updatedState.status ||
+        Math.abs(this.currentState.position - updatedState.position) > 1 || // Only significant position changes
+        this.currentState.duration !== updatedState.duration ||
+        this.currentState.volume !== updatedState.volume ||
+        this.currentState.error !== updatedState.error
+      );
+
+      if (hasChanged) {
+        this.currentState = updatedState;
+        
+        if (this.isRunning) {
+          console.log('   - State updated, final currentTrack:', this.currentState.currentTrack?.track?.title || 'null');
+          console.log('   - Emitting event to EventBroadcaster');
+        }
+        
+        // Create a new event with our corrected state
+        const correctedEvent: PlaybackEvent = {
+          ...event,
+          data: {
+            ...event.data,
+            state: this.getCurrentState() // Use our corrected state
+          }
+        };
+        
+        // Forward the corrected event to our listeners
+        this.emitEvent(correctedEvent);
+      } else {
+        if (this.isRunning) {
+          console.log('   - No meaningful state change, skipping event emission');
+        }
+      }
     }
   }
 
