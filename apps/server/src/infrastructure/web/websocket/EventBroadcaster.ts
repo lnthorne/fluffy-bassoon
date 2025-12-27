@@ -215,8 +215,8 @@ export class EventBroadcaster extends EventEmitter {
         return;
       }
 
-      // Additional protection: prevent rapid-fire duplicates within 100ms
-      if (now - this.lastBroadcastTime < 100) {
+      // Additional protection: prevent rapid-fire duplicates within 50ms
+      if (now - this.lastBroadcastTime < 50) {
         console.log('   ⏭️  Skipping rapid duplicate playback update - too soon');
         return;
       }
@@ -620,18 +620,18 @@ export class EventBroadcaster extends EventEmitter {
       return false;
     }
 
-    // For position changes, only broadcast if change is significant
+    // For position changes, broadcast every second when playing for smooth updates
     const positionDiff = Math.abs(state1.position - state2.position);
-    if (state1.status !== 'playing') {
-      // When not playing, position should be stable (allow 0.1s tolerance)
-      if (positionDiff > 0.1) {
-        console.log(`   🔄 Position changed while not playing: ${state1.position.toFixed(1)} → ${state2.position.toFixed(1)}`);
+    if (state1.status === 'playing') {
+      // When playing, broadcast position changes every ~1 second for smooth progress
+      if (positionDiff >= 0.5) { // Allow updates every 0.5 seconds or more
+        console.log(`   🔄 Position update while playing: ${state1.position.toFixed(1)} → ${state2.position.toFixed(1)}`);
         return false;
       }
     } else {
-      // When playing, only broadcast significant position changes (>3 seconds)
-      if (positionDiff > 3) {
-        console.log(`   🔄 Significant position change: ${state1.position.toFixed(1)} → ${state2.position.toFixed(1)}`);
+      // When not playing, position should be stable (allow 0.1s tolerance)
+      if (positionDiff > 0.1) {
+        console.log(`   🔄 Position changed while not playing: ${state1.position.toFixed(1)} → ${state2.position.toFixed(1)}`);
         return false;
       }
     }

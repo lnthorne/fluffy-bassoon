@@ -9,8 +9,12 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces",
+    "build:tv-ui": "npm run build --workspace=@party-jukebox/tv-ui",
+    "build:server": "npm run build --workspace=@party-jukebox/server",
+    "build:all": "npm run build:tv-ui && npm run build:server",
     "test": "npm run test --workspaces",
-    "dev:server": "npm run dev --workspace=@party-jukebox/server"
+    "dev:server": "npm run dev --workspace=@party-jukebox/server",
+    "dev:tv-ui": "npm run dev --workspace=@party-jukebox/tv-ui"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

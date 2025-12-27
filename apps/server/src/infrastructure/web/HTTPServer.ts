@@ -10,6 +10,7 @@
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
+import path from 'path';
 import { registerAPIRoutes } from './api';
 import { 
   WebSocketServer, 
@@ -87,6 +88,13 @@ export class HTTPServer {
         credentials: false,
       });
 
+      // Register static file serving for TV UI
+      await this.fastify.register(require('@fastify/static'), {
+        root: path.join(__dirname, '../../../dist/tv-ui'),
+        prefix: '/display/',
+        decorateReply: false,
+      });
+
       // Register WebSocket plugin
       await this.fastify.register(websocket, {
         options: {
@@ -147,7 +155,7 @@ export class HTTPServer {
       this.registerMiddleware();
       await this.registerRoutes();
 
-      console.log('HTTP server initialized with Fastify, WebSocket, and CORS support');
+      console.log('HTTP server initialized with Fastify, WebSocket, CORS, and static file serving');
     } catch (error) {
       console.error('Failed to initialize HTTP server:', error);
       throw error;
@@ -322,11 +330,27 @@ export class HTTPServer {
       reply.type('text/html').send(html);
     });
 
-    // TV display placeholder page
+    // TV display route - serve React app or fallback to placeholder
     this.fastify.get('/display', async (request: FastifyRequest, reply: FastifyReply) => {
-      const serverInfo = this.getServerInfo();
-      const html = this.generateDisplayPlaceholderPage(serverInfo);
-      reply.type('text/html').send(html);
+      try {
+        // Try to serve the built React app
+        const indexPath = path.join(__dirname, '../../../dist/tv-ui/index.html');
+        const fs = require('fs').promises;
+        
+        try {
+          const html = await fs.readFile(indexPath, 'utf8');
+          reply.type('text/html').send(html);
+        } catch (error) {
+          // Fallback to placeholder if React app not built
+          console.warn('TV UI not built, serving placeholder page');
+          const serverInfo = this.getServerInfo();
+          const html = this.generateDisplayPlaceholderPage(serverInfo);
+          reply.type('text/html').send(html);
+        }
+      } catch (error) {
+        console.error('Error serving TV display:', error);
+        reply.code(500).send({ error: 'Internal server error' });
+      }
     });
 
     // 404 error page for undefined routes
