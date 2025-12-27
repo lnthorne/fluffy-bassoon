@@ -65,6 +65,18 @@ function TVDisplayApp() {
       try {
         console.log('Connecting WebSocket for real-time updates...');
         
+        // Set server info with current location
+        const currentHost = window.location.hostname;
+        const currentPort = window.location.port || '3000';
+        const serverUrl = `http://${currentHost}:${currentPort}`;
+        
+        connectionActions.setServerInfo({
+          url: serverUrl,
+          wsUrl: `ws://${currentHost}:${currentPort}/ws`,
+          addresses: [currentHost],
+          version: undefined,
+        });
+        
         // Set API as connected optimistically (we'll only use it for control actions)
         connectionActions.setApiStatus({
           connected: true,
@@ -129,7 +141,7 @@ function TVDisplayApp() {
       {/* Main content area */}
       <main id="main-content" className="main-content" role="main">
         <div className="content-layout">
-          {/* Primary content section */}
+          {/* Primary content section - Now Playing */}
           <section className="primary-content">
             <ErrorBoundary fallback={
               <div className="component-error">
@@ -150,17 +162,20 @@ function TVDisplayApp() {
             </ErrorBoundary>
           </section>
           
-          {/* Sidebar content */}
-          <aside className="sidebar-content" role="complementary" aria-label="Queue and join information">
+          {/* Queue column */}
+          <aside className="queue-column" role="complementary" aria-label="Music queue">
             <ErrorBoundary fallback={
               <div className="component-error">
                 <h3>Queue display unavailable</h3>
                 <p>Refresh to restore queue view.</p>
               </div>
             }>
-              <QueueDisplay maxVisible={5} />
+              <QueueDisplay maxVisible={8} />
             </ErrorBoundary>
-            
+          </aside>
+          
+          {/* Join instructions column */}
+          <aside className="join-column" role="complementary" aria-label="Join information">
             <ErrorBoundary fallback={
               <div className="component-error">
                 <h3>Join instructions unavailable</h3>

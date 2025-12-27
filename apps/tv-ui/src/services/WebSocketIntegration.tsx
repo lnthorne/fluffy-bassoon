@@ -47,11 +47,10 @@ export function useWebSocketIntegration(wsService: WebSocketService | null) {
     console.log('Received initial state:', event.data);
     
     try {
-      // Update queue state
+      // Update queue state - ONLY upcoming tracks (exclude current track)
       if (event.data.queue) {
-        const { currentTrack, upcomingTracks } = event.data.queue;
-        const allItems = currentTrack ? [currentTrack, ...upcomingTracks] : [...upcomingTracks];
-        queueActions.setQueueItems(allItems);
+        const { upcomingTracks } = event.data.queue;
+        queueActions.setQueueItems([...(upcomingTracks || [])]);
       }
       
       // Update playback state
@@ -83,11 +82,10 @@ export function useWebSocketIntegration(wsService: WebSocketService | null) {
     console.log('Queue updated:', event.data);
     
     try {
-      const { currentTrack, upcomingTracks } = event.data;
+      const { upcomingTracks } = event.data;
       
-      // Combine current track and upcoming tracks
-      const allItems = currentTrack ? [currentTrack, ...upcomingTracks] : [...upcomingTracks];
-      queueActions.setQueueItems(allItems);
+      // Set ONLY upcoming tracks (exclude current track)
+      queueActions.setQueueItems([...(upcomingTracks || [])]);
       
       // Update connection activity
       connectionActions.updateLastActivity();

@@ -1,5 +1,6 @@
 import type { QueueItem } from '@party-jukebox/shared';
 import { useQueue } from '../contexts/QueueContext';
+import { usePlayback } from '../contexts/PlaybackContext';
 
 interface QueueDisplayProps {
   maxVisible?: number;
@@ -8,11 +9,19 @@ interface QueueDisplayProps {
 
 export function QueueDisplay({ maxVisible = 5, className = '' }: QueueDisplayProps) {
   const { state } = useQueue();
-  const { items, isEmpty, isLoading, error } = state;
+  const { state: playbackState } = usePlayback();
+  const { items, isLoading, error } = state;
+
+  // Filter out the currently playing track from the queue display
+  const upcomingItems = items.filter(item => {
+    // If there's a current track playing, exclude it from the "Up Next" list
+    return !playbackState.currentTrack || item.id !== playbackState.currentTrack.id;
+  });
 
   // Get upcoming tracks with limit for screen space management
-  const upcomingTracks = maxVisible ? items.slice(0, maxVisible) : items;
-  const hasMoreTracks = items.length > maxVisible;
+  const upcomingTracks = maxVisible ? upcomingItems.slice(0, maxVisible) : upcomingItems;
+  const hasMoreTracks = upcomingItems.length > maxVisible;
+  const isQueueEmpty = upcomingItems.length === 0;
 
   if (error) {
     return (
@@ -49,7 +58,7 @@ export function QueueDisplay({ maxVisible = 5, className = '' }: QueueDisplayPro
     );
   }
 
-  if (isEmpty) {
+  if (isQueueEmpty) {
     return (
       <section 
         className={`queue-display queue-empty ${className}`}
@@ -57,7 +66,7 @@ export function QueueDisplay({ maxVisible = 5, className = '' }: QueueDisplayPro
         aria-label="Music queue"
       >
         <div className="queue-header">
-          <h3>Queue</h3>
+          <h3>Up Next</h3>
         </div>
         <div className="empty-message">
           <p>Queue is empty</p>
@@ -77,9 +86,9 @@ export function QueueDisplay({ maxVisible = 5, className = '' }: QueueDisplayPro
         <h3>Up Next</h3>
         <span 
           className="queue-count"
-          aria-label={`${items.length} track${items.length !== 1 ? 's' : ''} in queue`}
+          aria-label={`${upcomingItems.length} track${upcomingItems.length !== 1 ? 's' : ''} in queue`}
         >
-          {items.length} track{items.length !== 1 ? 's' : ''}
+          {upcomingItems.length} track{upcomingItems.length !== 1 ? 's' : ''}
         </span>
       </div>
       
@@ -96,9 +105,9 @@ export function QueueDisplay({ maxVisible = 5, className = '' }: QueueDisplayPro
           <div 
             className="queue-more-indicator"
             role="listitem"
-            aria-label={`${items.length - maxVisible} additional tracks not shown`}
+            aria-label={`${upcomingItems.length - maxVisible} additional tracks not shown`}
           >
-            <p>+ {items.length - maxVisible} more track{items.length - maxVisible !== 1 ? 's' : ''}</p>
+            <p>+ {upcomingItems.length - maxVisible} more track{upcomingItems.length - maxVisible !== 1 ? 's' : ''}</p>
           </div>
         )}
       </div>
