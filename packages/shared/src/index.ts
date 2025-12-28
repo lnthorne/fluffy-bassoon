@@ -31,3 +31,6 @@ export { ErrorFactory } from './domain/errors';
 
 // Utility types
 export type { Result } from './domain/Track';
+
+// Utilities
+export { generateUUID } from './utils/uuid';

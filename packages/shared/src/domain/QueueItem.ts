@@ -1,3 +1,4 @@
+import { generateUUID } from '../utils/uuid';
 import { Track } from './Track';
 import { User, Result } from './User';
 
@@ -60,7 +61,7 @@ export class QueueItemValidator {
     }
 
     const queueItem: QueueItem = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       track: data.track,
       addedBy: data.addedBy,
       addedAt

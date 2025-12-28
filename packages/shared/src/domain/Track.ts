@@ -1,3 +1,5 @@
+import { generateUUID } from '../utils/uuid';
+
 /**
  * Track entity representing a music item with metadata
  * Requirements: 2.1, 2.4, 4.3
@@ -108,7 +110,7 @@ export class TrackValidator {
     }
 
     const track: Track = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       title: data.title.trim(),
       artist: data.artist.trim(),
       videoId: videoId,
