@@ -10,11 +10,13 @@
   "scripts": {
     "build": "npm run build --workspaces",
     "build:tv-ui": "npm run build --workspace=@party-jukebox/tv-ui",
+    "build:mobile-controller": "npm run build --workspace=@party-jukebox/mobile-controller",
     "build:server": "npm run build --workspace=@party-jukebox/server",
-    "build:all": "npm run build:tv-ui && npm run build:server",
+    "build:all": "npm run build:mobile-controller && npm run build:tv-ui && npm run build:server",
     "test": "npm run test --workspaces",
     "dev:server": "npm run dev --workspace=@party-jukebox/server",
-    "dev:tv-ui": "npm run dev --workspace=@party-jukebox/tv-ui"
+    "dev:tv-ui": "npm run dev --workspace=@party-jukebox/tv-ui",
+    "dev:mobile-controller": "npm run dev --workspace=@party-jukebox/mobile-controller"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

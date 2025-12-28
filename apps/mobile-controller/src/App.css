@@ -1,0 +1,101 @@
+/* Mobile Controller App Styles */
+
+.app {
+  min-height: 100vh;
+  min-height: 100dvh; /* Dynamic viewport height for mobile */
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+}
+
+.app-header {
+  background: var(--bg-secondary);
+  padding: var(--space-lg) var(--space-md);
+  text-align: center;
+  border-bottom: 1px solid var(--border-primary);
+  
+  /* Sticky header for mobile */
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  
+  /* Safe area support for notched devices */
+  padding-top: max(var(--space-lg), env(safe-area-inset-top));
+}
+
+.app-header h1 {
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: var(--space-xs);
+  line-height: 1.2;
+}
+
+.app-header p {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.app-main {
+  flex: 1;
+  padding: var(--space-xl) var(--space-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-lg);
+  
+  /* Safe area support for home indicator */
+  padding-bottom: max(var(--space-xl), env(safe-area-inset-bottom));
+}
+
+.app-main p {
+  font-size: var(--text-lg);
+  color: var(--text-secondary);
+  max-width: 32rem;
+  line-height: 1.6;
+}
+
+/* Responsive adjustments */
+@media (min-width: 768px) {
+  .app-header {
+    padding: var(--space-2xl) var(--space-lg);
+  }
+  
+  .app-header h1 {
+    font-size: var(--text-4xl);
+  }
+  
+  .app-main {
+    padding: var(--space-2xl) var(--space-lg);
+  }
+  
+  .app-main p {
+    font-size: var(--text-xl);
+  }
+}
+
+/* Landscape orientation adjustments for mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+  .app-header {
+    padding: var(--space-md) var(--space-md);
+  }
+  
+  .app-header h1 {
+    font-size: var(--text-2xl);
+    margin-bottom: var(--space-xs);
+  }
+  
+  .app-main {
+    padding: var(--space-lg) var(--space-md);
+    gap: var(--space-md);
+  }
+  
+  .app-main p {
+    font-size: var(--text-base);
+  }
+}
