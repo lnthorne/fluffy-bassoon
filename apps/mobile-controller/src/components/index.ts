@@ -8,6 +8,9 @@ export type { AddTrackButtonProps } from './AddTrackButton';
 export { QueueDisplay } from './QueueDisplay';
 export type { QueueDisplayProps } from './QueueDisplay';
 
+export { Modal } from './Modal';
+export type { ModalProps } from './Modal';
+
 // Session Management Components
 export { SessionSetup } from './SessionSetup';
 export type { SessionSetupProps } from './SessionSetup';

@@ -240,7 +240,7 @@ const AppContent: React.FC = () => {
               </div>
             </div>
             
-            <SessionManager />
+            <SessionManager compact />
           </div>
         </header>
 

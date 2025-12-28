@@ -76,6 +76,8 @@
   border: 2px solid #d1d5db;
   border-radius: 8px;
   font-size: 1rem;
+  color: #111827 !important;
+  background: white;
   transition: border-color 0.2s ease;
 }
 
@@ -271,6 +273,20 @@
   padding: 0.5rem 0.75rem;
   background: #f3f4f6;
   border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  position: relative;
+}
+
+.session-manager--compact .session-manager__info:hover {
+  background: #e5e7eb;
+}
+
+.session-manager--compact .session-manager__info::after {
+  content: '›';
+  font-size: 1rem;
+  color: #9ca3af;
+  margin-left: auto;
 }
 
 .session-manager--compact .session-manager__nickname {
@@ -319,6 +335,8 @@
   border: 2px solid #d1d5db;
   border-radius: 6px;
   font-size: 0.875rem;
+  color: #111827 !important;
+  background: white;
   margin-bottom: 0.75rem;
 }
 
@@ -358,4 +376,37 @@
     align-items: flex-start;
     gap: 0.25rem;
   }
+}
+/* Session modal specific styles */
+.session-modal .session-manager__content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.session-modal .session-manager__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.session-modal .session-manager__actions {
+  margin-top: 0;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+/* Ensure all input fields have proper text color contrast */
+.session-manager input[type="text"],
+.session-manager input[type="email"],
+.session-manager input[type="password"],
+.session-manager textarea {
+  color: #111827 !important;
+  background: white !important;
+}
+
+.session-manager input[type="text"]::placeholder,
+.session-manager input[type="email"]::placeholder,
+.session-manager input[type="password"]::placeholder,
+.session-manager textarea::placeholder {
+  color: #6b7280 !important;
 }
