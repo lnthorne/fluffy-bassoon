@@ -1,0 +1,297 @@
+/* AddTrackButton Component Styles */
+.add-track-button-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+/* Main Button */
+.add-track-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  border: 2px solid;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  
+  /* Mobile-optimized touch target */
+  min-height: 48px;
+  touch-action: manipulation;
+}
+
+/* Button States */
+.add-track-button--default {
+  background: #007bff;
+  border-color: #007bff;
+  color: white;
+}
+
+.add-track-button--default:hover:not(:disabled) {
+  background: #0056b3;
+  border-color: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.add-track-button--loading {
+  background: #6c757d;
+  border-color: #6c757d;
+  color: white;
+  cursor: wait;
+}
+
+.add-track-button--success {
+  background: #28a745;
+  border-color: #28a745;
+  color: white;
+  animation: success-pulse 0.3s ease-out;
+}
+
+.add-track-button--duplicate {
+  background: #ffc107;
+  border-color: #ffc107;
+  color: #212529;
+  cursor: not-allowed;
+}
+
+.add-track-button--rate-limited {
+  background: #dc3545;
+  border-color: #dc3545;
+  color: white;
+  cursor: not-allowed;
+}
+
+.add-track-button--disabled {
+  background: #e9ecef;
+  border-color: #dee2e6;
+  color: #6c757d;
+  cursor: not-allowed;
+}
+
+.add-track-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.add-track-button:disabled {
+  transform: none;
+}
+
+/* Button Content */
+.add-track-button__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.add-track-button__text {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* Spinner Animation */
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Success Pulse Animation */
+@keyframes success-pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Rate Limit Status */
+.rate-limit-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+.rate-limit-remaining {
+  font-weight: 500;
+}
+
+/* Feedback Messages */
+.add-track-feedback {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  animation: feedback-slide-in 0.3s ease-out;
+}
+
+.add-track-feedback--success {
+  background: #d4edda;
+  border: 1px solid #c3e6cb;
+  color: #155724;
+}
+
+.add-track-feedback--error {
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  color: #721c24;
+}
+
+.add-track-feedback--rate-limit {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  color: #856404;
+}
+
+.feedback-icon {
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+
+.feedback-message {
+  flex: 1;
+  line-height: 1.3;
+}
+
+/* Feedback Animation */
+@keyframes feedback-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+  .add-track-button {
+    padding: 0.875rem 1.25rem;
+    font-size: 0.95rem;
+    min-height: 44px;
+  }
+  
+  .add-track-button__icon {
+    font-size: 1.1rem;
+  }
+  
+  .add-track-button__text {
+    font-size: 0.95rem;
+  }
+  
+  .rate-limit-status {
+    padding: 0.375rem 0.5rem;
+    font-size: 0.8rem;
+  }
+  
+  .add-track-feedback {
+    padding: 0.625rem 0.875rem;
+    font-size: 0.85rem;
+  }
+}
+
+/* Compact variant for use in search results */
+.add-track-button--compact {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  min-height: 40px;
+}
+
+.add-track-button--compact .add-track-button__icon {
+  font-size: 1rem;
+}
+
+.add-track-button--compact .add-track-button__text {
+  font-size: 0.9rem;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .add-track-button {
+    border-width: 3px;
+  }
+  
+  .rate-limit-status {
+    border-width: 2px;
+  }
+  
+  .add-track-feedback {
+    border-width: 2px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+  
+  .add-track-button,
+  .add-track-feedback {
+    animation: none;
+    transition: none;
+  }
+  
+  .add-track-button--success {
+    animation: none;
+  }
+}
+
+/* Focus styles for accessibility */
+.add-track-button:focus-visible {
+  outline: 3px solid #007bff;
+  outline-offset: 2px;
+}
+
+/* Dark mode support (if implemented) */
+@media (prefers-color-scheme: dark) {
+  .rate-limit-status {
+    background: #343a40;
+    border-color: #495057;
+    color: #adb5bd;
+  }
+  
+  .add-track-feedback--success {
+    background: #1e4620;
+    border-color: #2d5a2f;
+    color: #a3d9a5;
+  }
+  
+  .add-track-feedback--error {
+    background: #4a1e1e;
+    border-color: #5a2d2d;
+    color: #f5b7b1;
+  }
+  
+  .add-track-feedback--rate-limit {
+    background: #4a3d1e;
+    border-color: #5a4a2d;
+    color: #f4d03f;
+  }
+}

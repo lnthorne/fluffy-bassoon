@@ -1,0 +1,235 @@
+/* Error Display Styles */
+
+.error-display {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  margin: var(--space-sm) 0;
+}
+
+.error-display--error {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: var(--color-danger);
+}
+
+.error-display--warning {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: var(--color-warning);
+}
+
+.error-display--info {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: var(--color-info);
+}
+
+.error-display__container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.error-display__header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+}
+
+.error-display__icon {
+  font-size: var(--text-xl);
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: var(--space-xs);
+}
+
+.error-display__title-section {
+  flex: 1;
+  min-width: 0;
+}
+
+.error-display__title {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-xs) 0;
+  line-height: 1.3;
+}
+
+.error-display--error .error-display__title {
+  color: var(--color-danger);
+}
+
+.error-display--warning .error-display__title {
+  color: var(--color-warning);
+}
+
+.error-display--info .error-display__title {
+  color: var(--color-info);
+}
+
+.error-display__message {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.error-display__details {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+}
+
+.error-display__details summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--text-primary);
+  padding: var(--space-xs);
+  border-radius: var(--radius-sm);
+  transition: background-color 0.2s ease;
+  font-size: var(--text-sm);
+}
+
+.error-display__details summary:hover {
+  background: var(--bg-primary);
+}
+
+.error-display__details-content {
+  margin-top: var(--space-sm);
+  padding: var(--space-sm);
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-primary);
+}
+
+.error-display__details-content pre {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.error-display__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  justify-content: flex-end;
+}
+
+.error-display__button {
+  min-height: var(--touch-target-min);
+  padding: var(--space-sm) var(--space-md);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-width: 80px;
+}
+
+.error-display__button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error-display__button--primary {
+  background: var(--color-primary);
+  color: white;
+}
+
+.error-display__button--primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
+}
+
+.error-display__button--primary:active:not(:disabled) {
+  background: var(--color-primary-active);
+  transform: translateY(0);
+}
+
+.error-display__button--secondary {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-primary);
+}
+
+.error-display__button--secondary:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-secondary);
+  transform: translateY(-1px);
+}
+
+.error-display__button--secondary:active:not(:disabled) {
+  background: var(--bg-secondary);
+  transform: translateY(0);
+}
+
+.error-display__spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Focus styles for accessibility */
+.error-display__button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .error-display__actions {
+    justify-content: stretch;
+  }
+  
+  .error-display__button {
+    flex: 1;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .error-display {
+    border-width: 2px;
+  }
+  
+  .error-display__details {
+    border-width: 2px;
+  }
+  
+  .error-display__details-content {
+    border-width: 2px;
+  }
+  
+  .error-display__button--secondary {
+    border-width: 2px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .error-display__button {
+    transition: none;
+  }
+  
+  .error-display__button:hover,
+  .error-display__button:active {
+    transform: none;
+  }
+  
+  .error-display__spinner {
+    animation: none;
+  }
+}

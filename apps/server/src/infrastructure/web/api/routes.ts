@@ -447,9 +447,9 @@ async function handleAddTrackToQueue(
       return;
     }
     
-    // Create user with generated ID (since we don't have authentication)
+    // Create user with provided ID (for rate limiting consistency)
     const userResult = UserValidator.create({
-      id: crypto.randomUUID(), // Generate unique ID for this session
+      id: userData.id || crypto.randomUUID(), // Use provided ID or generate if missing
       nickname: userData.nickname,
     });
     
@@ -530,9 +530,13 @@ async function handleAddTrackToQueue(
       return;
     }
     
-    // Success - get queue position
+    // Success - get queue position and rate limit info
     const queueState = queueService.getQueueState();
     const queuePosition = queueState.totalLength; // Position is the total length since we just added
+    
+    // Get updated rate limit info for the user
+    const rateLimitInfo = queueService.getUserRateLimitInfo(userResult.value);
+    console.log('🔍 Rate limit info for user', userResult.value.id, ':', rateLimitInfo);
     
     // Trigger EventBroadcaster events if available
     if (eventBroadcaster) {
@@ -561,6 +565,12 @@ async function handleAddTrackToQueue(
       },
       timestamp: new Date().toISOString(),
     };
+    
+    // Set rate limit headers for client parsing
+    reply.header('X-RateLimit-Remaining', rateLimitInfo.remainingRequests.toString());
+    reply.header('X-RateLimit-Limit', '5'); // From RateLimiter.REQUEST_LIMIT
+    reply.header('X-RateLimit-Reset', rateLimitInfo.timeUntilReset.toString());
+    reply.header('X-RateLimit-Window', '600000'); // 10 minutes in milliseconds
     
     reply.code(HTTP_STATUS.CREATED).send(response);
     

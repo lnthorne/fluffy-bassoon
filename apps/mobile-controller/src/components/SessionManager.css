@@ -1,0 +1,361 @@
+.session-manager {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+}
+
+.session-manager__header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.session-manager__header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.session-manager__content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.session-manager__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.session-manager__label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.session-manager__value-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.session-manager__value {
+  font-size: 1rem;
+  color: #111827;
+  font-weight: 500;
+}
+
+.session-manager__device-id {
+  font-family: monospace;
+  font-size: 0.875rem;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  word-break: break-all;
+}
+
+.session-manager__field-hint {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+}
+
+.session-manager__edit-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.session-manager__input {
+  padding: 0.75rem;
+  border: 2px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.2s ease;
+}
+
+.session-manager__input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.session-manager__edit-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.session-manager__save-btn {
+  padding: 0.5rem 1rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  min-height: 36px;
+}
+
+.session-manager__save-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.session-manager__save-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.session-manager__cancel-btn {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 36px;
+}
+
+.session-manager__cancel-btn:hover:not(:disabled) {
+  background: #f9fafb;
+  color: #374151;
+}
+
+.session-manager__edit-btn {
+  padding: 0.375rem 0.75rem;
+  background: transparent;
+  color: #3b82f6;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 32px;
+}
+
+.session-manager__edit-btn:hover {
+  background: #3b82f6;
+  color: white;
+}
+
+.session-manager__session-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: #f9fafb;
+  padding: 0.75rem;
+  border-radius: 6px;
+}
+
+.session-manager__info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.session-manager__info-label {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.session-manager__info-value {
+  font-size: 0.875rem;
+  color: #111827;
+  font-weight: 500;
+}
+
+.session-manager__error {
+  padding: 0.75rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  color: #dc2626;
+  font-size: 0.875rem;
+}
+
+.session-manager__actions {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.session-manager__reset-btn {
+  padding: 0.75rem 1rem;
+  background: transparent;
+  color: #dc2626;
+  border: 1px solid #dc2626;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.session-manager__reset-btn:hover {
+  background: #dc2626;
+  color: white;
+}
+
+.session-manager__reset-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.session-manager__reset-confirm p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+.session-manager__reset-confirm ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.session-manager__reset-confirm li {
+  margin-bottom: 0.25rem;
+}
+
+.session-manager__confirm-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.session-manager__confirm-btn {
+  padding: 0.75rem 1rem;
+  background: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.session-manager__confirm-btn:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.session-manager__confirm-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* Compact variant */
+.session-manager--compact {
+  position: relative;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.session-manager--compact .session-manager__info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #f3f4f6;
+  border-radius: 8px;
+}
+
+.session-manager--compact .session-manager__nickname {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #111827;
+}
+
+.session-manager--compact .session-manager__edit-btn {
+  padding: 0.25rem;
+  background: transparent;
+  border: none;
+  font-size: 0.75rem;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+  min-height: auto;
+}
+
+.session-manager--compact .session-manager__edit-btn:hover {
+  opacity: 1;
+  background: transparent;
+  color: inherit;
+}
+
+.session-manager__edit-overlay {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  margin-top: 0.5rem;
+}
+
+.session-manager__edit-form {
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.session-manager__edit-form .session-manager__edit-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+}
+
+.session-manager__edit-form .session-manager__edit-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.session-manager__edit-form .session-manager__edit-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Mobile optimizations */
+@media (max-width: 480px) {
+  .session-manager {
+    padding: 1rem;
+  }
+  
+  .session-manager__confirm-actions {
+    flex-direction: column;
+  }
+  
+  .session-manager__edit-actions {
+    flex-direction: column;
+  }
+  
+  .session-manager__value-group {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .session-manager__info-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+}

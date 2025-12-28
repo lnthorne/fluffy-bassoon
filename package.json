@@ -13,10 +13,14 @@
     "build:mobile-controller": "npm run build --workspace=@party-jukebox/mobile-controller",
     "build:server": "npm run build --workspace=@party-jukebox/server",
     "build:all": "npm run build:mobile-controller && npm run build:tv-ui && npm run build:server",
+    "build:production": "NODE_ENV=production npm run build:all",
     "test": "npm run test --workspaces",
     "dev:server": "npm run dev --workspace=@party-jukebox/server",
     "dev:tv-ui": "npm run dev --workspace=@party-jukebox/tv-ui",
-    "dev:mobile-controller": "npm run dev --workspace=@party-jukebox/mobile-controller"
+    "dev:mobile-controller": "npm run dev --workspace=@party-jukebox/mobile-controller",
+    "start": "npm run dev:server",
+    "clean": "npm run clean --workspaces --if-present",
+    "clean:build": "npm run clean && npm run build:all"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

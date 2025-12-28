@@ -323,11 +323,107 @@ export class HTTPServer {
       };
     });
 
-    // Controller placeholder page at root
+    // Controller app at root - serve React app or fallback to placeholder
     this.fastify.get('/', async (request: FastifyRequest, reply: FastifyReply) => {
-      const serverInfo = this.getServerInfo();
-      const html = this.generateControllerPlaceholderPage(serverInfo);
-      reply.type('text/html').send(html);
+      try {
+        // Try to serve the built React app
+        const indexPath = path.join(__dirname, '../../../dist/mobile-controller/index.html');
+        const fs = require('fs').promises;
+        
+        try {
+          const html = await fs.readFile(indexPath, 'utf8');
+          reply.type('text/html').send(html);
+        } catch (error) {
+          // Fallback to placeholder if React app not built
+          console.warn('Mobile Controller UI not built, serving placeholder page');
+          const serverInfo = this.getServerInfo();
+          const html = this.generateControllerPlaceholderPage(serverInfo);
+          reply.type('text/html').send(html);
+        }
+      } catch (error) {
+        console.error('Error serving mobile controller:', error);
+        reply.code(500).send({ error: 'Internal server error' });
+      }
+    });
+
+    // Handle SPA routing for mobile controller - catch all routes that don't match API or display
+    this.fastify.get('/*', async (request: FastifyRequest, reply: FastifyReply) => {
+      // Skip API routes, display routes, WebSocket, and health endpoints
+      if (request.url.startsWith('/api/') || 
+          request.url.startsWith('/display') || 
+          request.url === '/health' || 
+          request.url === '/ws') {
+        return reply.callNotFound();
+      }
+
+      // Handle static assets for mobile controller
+      if (request.url.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map)$/)) {
+        try {
+          const fs = require('fs').promises;
+          const assetPath = path.join(__dirname, '../../../dist/mobile-controller', request.url);
+          
+          try {
+            const content = await fs.readFile(assetPath);
+            const ext = path.extname(request.url).toLowerCase();
+            
+            // Set appropriate content type
+            const contentTypes: { [key: string]: string } = {
+              '.js': 'application/javascript',
+              '.css': 'text/css',
+              '.png': 'image/png',
+              '.jpg': 'image/jpeg',
+              '.jpeg': 'image/jpeg',
+              '.gif': 'image/gif',
+              '.svg': 'image/svg+xml',
+              '.ico': 'image/x-icon',
+              '.woff': 'font/woff',
+              '.woff2': 'font/woff2',
+              '.ttf': 'font/ttf',
+              '.eot': 'application/vnd.ms-fontobject',
+              '.map': 'application/json',
+            };
+            
+            const contentType = contentTypes[ext] || 'application/octet-stream';
+            reply.type(contentType);
+            
+            // Set caching headers for static assets
+            reply.header('Cache-Control', 'public, max-age=31536000'); // 1 year
+            
+            reply.send(content);
+            return;
+          } catch (error) {
+            // Asset not found, return 404
+            reply.code(404).send({ error: 'Asset not found' });
+            return;
+          }
+        } catch (error) {
+          console.error('Error serving static asset:', error);
+          reply.code(500).send({ error: 'Internal server error' });
+          return;
+        }
+      }
+
+      try {
+        // Serve the mobile controller index.html for SPA routing
+        const indexPath = path.join(__dirname, '../../../dist/mobile-controller/index.html');
+        const fs = require('fs').promises;
+        
+        try {
+          const html = await fs.readFile(indexPath, 'utf8');
+          reply.type('text/html');
+          reply.header('Cache-Control', 'no-cache'); // Don't cache HTML for SPA
+          reply.send(html);
+        } catch (error) {
+          // Fallback to placeholder if React app not built
+          console.warn('Mobile Controller UI not built, serving placeholder page');
+          const serverInfo = this.getServerInfo();
+          const html = this.generateControllerPlaceholderPage(serverInfo);
+          reply.type('text/html').send(html);
+        }
+      } catch (error) {
+        console.error('Error serving mobile controller SPA route:', error);
+        reply.code(500).send({ error: 'Internal server error' });
+      }
     });
 
     // TV display route - serve React app or fallback to placeholder

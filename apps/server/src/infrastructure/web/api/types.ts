@@ -134,6 +134,7 @@ export interface AddTrackRequest {
     thumbnailUrl?: string;
   };
   user: {
+    id?: string; // Optional device/user ID for rate limiting
     nickname: string;
   };
 }
