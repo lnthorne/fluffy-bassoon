@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   SessionProvider,
   QueueProvider,
@@ -34,6 +34,7 @@ const AppContent: React.FC = () => {
   const [selectedTrack, setSelectedTrack] = useState<SearchResult | null>(null);
   const [appError, setAppError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const eventHandlersSetup = useRef<boolean>(false);
 
   // Check if session is ready (has nickname and is not loading)
   const isSessionReady = sessionState.session && !sessionState.isLoading;
@@ -50,10 +51,16 @@ const AppContent: React.FC = () => {
           const apiConnected = await testAPIConnection();
           
           if (apiConnected) {
-            console.log('API connection successful, initializing WebSocket...');
-            // Initialize WebSocket connection
-            await connectWebSocket();
-            console.log('WebSocket initialization complete');
+            console.log('API connection successful, checking WebSocket status...');
+            
+            // Only connect WebSocket if not already connected
+            if (!connectionState.status.websocket.connected && !connectionState.status.websocket.reconnecting) {
+              console.log('Initializing WebSocket connection...');
+              await connectWebSocket();
+              console.log('WebSocket initialization complete');
+            } else {
+              console.log('WebSocket already connected or connecting, skipping initialization');
+            }
           } else {
             console.warn('API connection failed, WebSocket initialization skipped');
           }
@@ -68,15 +75,15 @@ const AppContent: React.FC = () => {
     };
 
     initializeApp();
-  }, [isSessionReady, isInitialized, testAPIConnection, connectWebSocket]);
+  }, [isSessionReady, isInitialized, connectionState.status.websocket.connected, connectionState.status.websocket.reconnecting, testAPIConnection, connectWebSocket]);
 
-  // Subscribe to WebSocket events for real-time updates
+  // Subscribe to WebSocket events for real-time updates (only once per service instance)
   useEffect(() => {
     const webSocketService = connectionState.webSocketService;
-    if (webSocketService && connectionState.status.websocket.connected) {
+    if (webSocketService && connectionState.status.websocket.connected && !eventHandlersSetup.current) {
       console.log('Setting up WebSocket event handlers...');
       
-      // Define event handlers
+      // Define event handlers with stable references
       const handleQueueUpdate = (event: any) => {
         console.log('Received queue update:', event.data);
         if (event.data) {
@@ -117,6 +124,7 @@ const AppContent: React.FC = () => {
       webSocketService.subscribe('connection_established', handleConnection);
       webSocketService.subscribe('error_occurred', handleError);
 
+      eventHandlersSetup.current = true;
       console.log('WebSocket event handlers set up successfully');
 
       // Cleanup subscriptions
@@ -127,6 +135,7 @@ const AppContent: React.FC = () => {
         webSocketService.unsubscribe('track_added', handleTrackAdded);
         webSocketService.unsubscribe('connection_established', handleConnection);
         webSocketService.unsubscribe('error_occurred', handleError);
+        eventHandlersSetup.current = false;
       };
     }
   }, [connectionState.webSocketService, connectionState.status.websocket.connected, updateQueue]);
@@ -273,10 +282,10 @@ const AppContent: React.FC = () => {
           <section className="app-section rate-limit-section">
             <RateLimitIndicator 
               rateLimitInfo={rateLimitState.rateLimitInfo || {
-                remainingRequests: 10,
+                remainingRequests: 5,
                 timeUntilReset: 0,
-                maxRequests: 10,
-                windowDuration: 60000,
+                maxRequests: 5,
+                windowDuration: 600000,
                 isLimited: false
               }}
             />

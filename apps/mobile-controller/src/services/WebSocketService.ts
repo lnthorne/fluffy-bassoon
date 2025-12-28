@@ -190,6 +190,17 @@ export class WebSocketService {
    * Requirements: 5.1, 5.4, 5.5
    */
   async connect(): Promise<void> {
+    // Prevent multiple simultaneous connection attempts
+    if (this.connectionStatus === 'connected') {
+      console.log('WebSocket already connected, skipping connection attempt');
+      return;
+    }
+    
+    if (this.connectionStatus === 'connecting') {
+      console.log('WebSocket connection already in progress, skipping connection attempt');
+      return;
+    }
+
     // Circuit breaker: prevent rapid connection attempts
     const now = new Date();
     if (this.lastConnectionAttempt && (now.getTime() - this.lastConnectionAttempt.getTime()) < 1000) {
@@ -204,18 +215,18 @@ export class WebSocketService {
       return;
     }
 
-    // Prevent multiple simultaneous connection attempts
-    if (this.connectionStatus === 'connected' || this.connectionStatus === 'connecting') {
-      console.log('WebSocket already connected or connecting, skipping connection attempt');
-      return;
-    }
-
     // Clear any existing reconnection timeout when manually connecting
     this.clearReconnectTimeout();
 
     this.setConnectionStatus('connecting');
     
     try {
+      // Close existing socket if any
+      if (this.socket) {
+        this.socket.close();
+        this.socket = null;
+      }
+      
       // Add client type as query parameter
       const url = new URL(this.config.url);
       url.searchParams.set('clientType', this.config.clientType);

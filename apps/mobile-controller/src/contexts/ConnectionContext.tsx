@@ -187,42 +187,50 @@ export function ConnectionProvider({ children, serverUrl }: ConnectionProviderPr
       return;
     }
 
+    // Prevent multiple connection attempts
+    if (state.webSocketService?.isConnected() || state.status.websocket.reconnecting) {
+      console.log('WebSocket already connected or connecting, skipping connection attempt');
+      return;
+    }
+
     dispatch({ type: 'UPDATE_WEBSOCKET_STATUS', payload: { connected: false, reconnecting: true } });
 
     try {
-      // Create WebSocket service if not exists
+      // Create WebSocket service if not exists or if previous one is disconnected
       let wsService = state.webSocketService;
-      if (!wsService) {
+      if (!wsService || wsService.getConnectionStatus() === 'error') {
+        // Clean up old service if it exists
+        if (wsService) {
+          wsService.destroy();
+        }
+        
         wsService = createWebSocketService(
           state.status.server.url.replace(/^http/, 'ws') + '/ws',
           {
             clientType: 'controller',
-            reconnectInterval: 1000,
-            maxReconnectAttempts: 5,
+            reconnectInterval: 2000,
+            maxReconnectAttempts: 10,
+            heartbeatInterval: 30000,
           }
         );
         dispatch({ type: 'SET_WEBSOCKET_SERVICE', payload: wsService });
       }
 
-      // Set up event handlers
-      wsService.subscribe('connection_established', () => {
-        dispatch({ type: 'UPDATE_WEBSOCKET_STATUS', payload: { connected: true, reconnecting: false } });
-      });
+      // Set up event handlers only once
+      if (!wsService.isConnected()) {
+        // Clear any existing handlers to prevent duplicates
+        wsService.unsubscribe('connection_established', handleConnectionEstablished);
+        wsService.unsubscribe('error_occurred', handleWebSocketError);
+        
+        // Add handlers
+        wsService.subscribe('connection_established', handleConnectionEstablished);
+        wsService.subscribe('error_occurred', handleWebSocketError);
+      }
 
-      wsService.subscribe('error_occurred', (event) => {
-        const errorMessage = event.data?.message || 'WebSocket error';
-        dispatch({ 
-          type: 'UPDATE_WEBSOCKET_STATUS', 
-          payload: { 
-            connected: false, 
-            reconnecting: false, 
-            lastError: errorMessage 
-          } 
-        });
-      });
-
-      // Connect
-      await wsService.connect();
+      // Connect only if not already connected
+      if (!wsService.isConnected()) {
+        await wsService.connect();
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to connect WebSocket';
       dispatch({ 
@@ -234,7 +242,24 @@ export function ConnectionProvider({ children, serverUrl }: ConnectionProviderPr
         } 
       });
     }
-  }, [sessionState.session, state.webSocketService, state.status.server.url]);
+  }, [sessionState.session, state.webSocketService, state.status.websocket.reconnecting]);
+
+  // WebSocket event handlers (defined outside to prevent recreation)
+  const handleConnectionEstablished = useCallback(() => {
+    dispatch({ type: 'UPDATE_WEBSOCKET_STATUS', payload: { connected: true, reconnecting: false } });
+  }, []);
+
+  const handleWebSocketError = useCallback((event: any) => {
+    const errorMessage = event.data?.message || 'WebSocket error';
+    dispatch({ 
+      type: 'UPDATE_WEBSOCKET_STATUS', 
+      payload: { 
+        connected: false, 
+        reconnecting: false, 
+        lastError: errorMessage 
+      } 
+    });
+  }, []);
 
   // Disconnect WebSocket
   const disconnectWebSocket = useCallback(() => {
@@ -286,16 +311,22 @@ export function ConnectionProvider({ children, serverUrl }: ConnectionProviderPr
     dispatch({ type: 'RESET_CONNECTION' });
   }, []);
 
-  // Initialize connections when session is ready
+  // Initialize connections when session is ready (only once)
   useEffect(() => {
-    if (sessionState.session && !sessionState.isLoading) {
-      // Test API connection
-      testAPIConnection();
+    if (sessionState.session && !sessionState.isLoading && !state.status.api.connected && !state.status.websocket.connected) {
+      console.log('Session ready, initializing connections...');
       
-      // Connect WebSocket
-      connectWebSocket();
+      // Test API connection first
+      testAPIConnection().then((apiConnected) => {
+        if (apiConnected) {
+          // Only connect WebSocket if API is working and WebSocket is not already connected
+          if (!state.status.websocket.connected && !state.status.websocket.reconnecting) {
+            connectWebSocket();
+          }
+        }
+      });
     }
-  }, [sessionState.session, sessionState.isLoading, testAPIConnection, connectWebSocket]);
+  }, [sessionState.session, sessionState.isLoading, state.status.api.connected, state.status.websocket.connected, testAPIConnection, connectWebSocket]);
 
   // Cleanup on unmount
   useEffect(() => {

@@ -14,44 +14,44 @@ export const RateLimitDemo: React.FC = () => {
   // Create demo rate limit info based on selected mode
   const createDemoRateLimit = (mode: typeof demoMode): RateLimitInfo => {
     const baseInfo = {
-      maxRequests: 10,
-      windowDuration: 60000, // 1 minute
+      maxRequests: 5, // Correct: 5 songs
+      windowDuration: 600000, // Correct: 10 minutes (600,000 ms)
     };
 
     switch (mode) {
       case 'normal':
         return {
           ...baseInfo,
-          remainingRequests: 8,
-          timeUntilReset: 30000, // 30 seconds
+          remainingRequests: 3,
+          timeUntilReset: 300000, // 5 minutes
           isLimited: false,
         };
       case 'warning':
         return {
           ...baseInfo,
-          remainingRequests: 3,
-          timeUntilReset: 45000, // 45 seconds
+          remainingRequests: 1,
+          timeUntilReset: 450000, // 7.5 minutes
           isLimited: false,
         };
       case 'critical':
         return {
           ...baseInfo,
           remainingRequests: 1,
-          timeUntilReset: 50000, // 50 seconds
+          timeUntilReset: 500000, // 8.3 minutes
           isLimited: false,
         };
       case 'blocked':
         return {
           ...baseInfo,
           remainingRequests: 0,
-          timeUntilReset: 25000, // 25 seconds
+          timeUntilReset: 250000, // 4.2 minutes
           isLimited: true,
         };
       default:
         return {
           ...baseInfo,
-          remainingRequests: 5,
-          timeUntilReset: 30000,
+          remainingRequests: 3,
+          timeUntilReset: 300000,
           isLimited: false,
         };
     }
@@ -90,7 +90,7 @@ export const RateLimitDemo: React.FC = () => {
               cursor: 'pointer'
             }}
           >
-            Normal (8/10)
+            Normal (3/5)
           </button>
           <button 
             onClick={() => handleDemoModeChange('warning')}
@@ -103,7 +103,7 @@ export const RateLimitDemo: React.FC = () => {
               cursor: 'pointer'
             }}
           >
-            Warning (3/10)
+            Warning (1/5)
           </button>
           <button 
             onClick={() => handleDemoModeChange('critical')}
@@ -116,7 +116,7 @@ export const RateLimitDemo: React.FC = () => {
               cursor: 'pointer'
             }}
           >
-            Critical (1/10)
+            Critical (1/5)
           </button>
           <button 
             onClick={() => handleDemoModeChange('blocked')}
@@ -129,7 +129,7 @@ export const RateLimitDemo: React.FC = () => {
               cursor: 'pointer'
             }}
           >
-            Blocked (0/10)
+            Blocked (0/5)
           </button>
         </div>
         
