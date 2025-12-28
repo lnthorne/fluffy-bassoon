@@ -20,7 +20,7 @@ import {
   ConnectionError,
   ErrorDisplay
 } from './components';
-import { SearchResult, Track } from '@party-jukebox/shared';
+import { SearchResult, Track, QueueStateFactory } from '@party-jukebox/shared';
 import { apiService } from './services';
 import './App.css';
 
@@ -87,15 +87,34 @@ const AppContent: React.FC = () => {
       const handleQueueUpdate = (event: any) => {
         console.log('Received queue update:', event.data);
         if (event.data) {
-          updateQueue(event.data);
+          // Transform raw server data into proper QueueState using factory
+          const queueState = QueueStateFactory.create(
+            event.data.currentTrack,
+            event.data.upcomingTracks || []
+          );
+          updateQueue(queueState);
+        }
+      };
+
+      const handleInitialState = (event: any) => {
+        console.log('Received initial state:', event.data);
+        if (event.data && event.data.queue) {
+          // Transform raw server data into proper QueueState using factory
+          const queueState = QueueStateFactory.create(
+            event.data.queue.currentTrack,
+            event.data.queue.upcomingTracks || []
+          );
+          updateQueue(queueState);
         }
       };
 
       const handlePlaybackUpdate = (event: any) => {
         console.log('Received playback update:', event.data);
         if (event.data) {
-          // Update queue state with new current track
-          updateQueue(event.data);
+          // Playback updates should not overwrite the entire queue state
+          // They only contain currentTrack and playback position info
+          // We should update playback status separately or merge with existing queue state
+          console.log('Playback update - not updating queue state to avoid overwriting upcoming tracks');
         }
       };
 
@@ -118,6 +137,7 @@ const AppContent: React.FC = () => {
       };
 
       // Subscribe to events
+      webSocketService.subscribe('initial_state', handleInitialState);
       webSocketService.subscribe('queue_updated', handleQueueUpdate);
       webSocketService.subscribe('playback_updated', handlePlaybackUpdate);
       webSocketService.subscribe('track_added', handleTrackAdded);
@@ -130,6 +150,7 @@ const AppContent: React.FC = () => {
       // Cleanup subscriptions
       return () => {
         console.log('Cleaning up WebSocket event handlers...');
+        webSocketService.unsubscribe('initial_state', handleInitialState);
         webSocketService.unsubscribe('queue_updated', handleQueueUpdate);
         webSocketService.unsubscribe('playback_updated', handlePlaybackUpdate);
         webSocketService.unsubscribe('track_added', handleTrackAdded);
